@@ -1,0 +1,61 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-sans: 'DM Sans', sans-serif;
+  --font-serif: 'Playfair Display', serif;
+
+  /* HSL Conversions for CSS variables support */
+  /* Maroon #5D2A2C -> 357 38% 26% */
+  /* Offwhite #F5F5F5 -> 0 0% 96% */
+  /* Forest #2E5A35 -> 130 32% 27% */
+  /* Charcoal #333333 -> 0 0% 20% */
+
+  --background: 0 0% 96%;
+  --foreground: 0 0% 20%;
+  
+  --primary: 357 38% 26%;
+  --primary-foreground: 0 0% 98%;
+  
+  --secondary: 130 32% 27%;
+  --secondary-foreground: 0 0% 98%;
+  
+  --muted: 0 0% 90%;
+  --muted-foreground: 0 0% 40%;
+  
+  --accent: 35 30% 90%;
+  --accent-foreground: 357 38% 26%;
+  
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 98%;
+
+  --border: 0 0% 85%;
+  --input: 0 0% 85%;
+  --ring: 357 38% 26%;
+  
+  --radius: 0.5rem;
+}
+
+@layer base {
+  body {
+    @apply bg-offwhite text-charcoal font-sans antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-serif font-semibold tracking-tight;
+  }
+}
+
+@layer utilities {
+  .text-shadow {
+    text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  
+  .text-shadow-lg {
+    text-shadow: 0 4px 8px rgba(0,0,0,0.25);
+  }
+}
