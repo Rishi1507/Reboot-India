@@ -1,6 +1,5 @@
 {
   "name": "reboot-india-backend",
-  "type": "module",
   "version": "1.0.0",
   "private": true,
   "license": "MIT",
@@ -11,7 +10,7 @@
   "scripts": {
     "dev": "tsx watch index.ts",
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/index.js",
+    "start": "node dist/backend/index.js",
     "db:push": "drizzle-kit push"
   },
   "dependencies": {
