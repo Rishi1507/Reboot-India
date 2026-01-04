@@ -4,29 +4,22 @@
   "private": true,
   "type": "module",
   "license": "MIT",
+  "engines": {
+    "node": "18.x"
+  },
   "scripts": {
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:client": "vite",
+    "dev:server": "ts-node server/index.ts",
 
-  "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
-  "dev:client": "vite",
-  "dev:server": "ts-node server/index.ts",
+    "build": "npm run build:client && npm run build:server",
+    "build:client": "vite build",
+    "build:server": "tsc -p server/tsconfig.json",
 
- 
-  "build": "npm run build:client && npm run build:server",
-  "build:client": "vite build",
-  "build:server": "tsc -p server/tsconfig.json",
-
-  
-  "start": "node dist/server/index.js", 
-
- 
-  "preview": "vite preview",
-
-  
-  "check": "tsc",
-
-  
-  "db:push": "drizzle-kit push"
-}
+    "start": "node dist/server/index.js",
+    "preview": "vite preview",
+    "check": "tsc",
+    "db:push": "drizzle-kit push"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.12",
