@@ -6,6 +6,8 @@ import { CheckCircle, Mail, Home as HomeIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 
+const API_BASE_URL = import.meta.env.VITE_API_URL;
+
 export default function BookingSuccess() {
   const [, setLocation] = useLocation();
   const [verified, setVerified] = useState(false);
@@ -20,7 +22,17 @@ export default function BookingSuccess() {
       if (!sessionId) {
         toast({
           title: "Error",
-          description: "No session found",
+          description: "No payment session found.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      if (!API_BASE_URL) {
+        toast({
+          title: "Configuration Error",
+          description: "API URL is not configured.",
           variant: "destructive",
         });
         setLoading(false);
@@ -28,21 +40,26 @@ export default function BookingSuccess() {
       }
 
       try {
-        const response = await fetch("/api/bookings/verify-payment", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sessionId }),
-        });
+        const response = await fetch(
+          `${API_BASE_URL}/api/bookings/verify-payment`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sessionId }),
+          }
+        );
 
-        if (response.ok) {
-          setVerified(true);
-        } else {
-          throw new Error("Payment verification failed");
+        if (!response.ok) {
+          throw new Error("Verification failed");
         }
+
+        setVerified(true);
       } catch (error) {
+        console.error("❌ Payment verification failed:", error);
         toast({
           title: "Verification Failed",
-          description: "We couldn't verify your payment. Please contact support.",
+          description:
+            "We couldn't verify your payment. Please contact support.",
           variant: "destructive",
         });
       } finally {
@@ -53,6 +70,9 @@ export default function BookingSuccess() {
     verifyPayment();
   }, [toast]);
 
+  // --------------------
+  // LOADING STATE
+  // --------------------
   if (loading) {
     return (
       <div className="min-h-screen bg-offwhite flex items-center justify-center">
@@ -81,30 +101,31 @@ export default function BookingSuccess() {
               </h1>
 
               <p className="text-lg text-gray-600 mb-8 leading-relaxed">
-                Your trek booking has been confirmed. A confirmation email with all the details
-                has been sent to your registered email address. You'll also receive important
-                information about what to bring and preparation tips.
+                Your trek booking has been confirmed. A confirmation email has
+                been sent to your registered email address with all the details.
               </p>
 
               <div className="bg-white border-2 border-forest/20 rounded-2xl p-8 mb-8">
-                <div className="flex items-start gap-4 mb-6 pb-6 border-b border-gray-200 last:border-0">
+                <div className="flex items-start gap-4 mb-6 pb-6 border-b border-gray-200">
                   <Mail className="w-6 h-6 text-forest flex-shrink-0 mt-1" />
                   <div className="text-left">
-                    <h3 className="font-bold text-charcoal mb-2">Confirmation Email Sent</h3>
+                    <h3 className="font-bold text-charcoal mb-2">
+                      Confirmation Email Sent
+                    </h3>
                     <p className="text-gray-600 text-sm">
-                      Check your inbox and spam folder for the booking confirmation email with
-                      trek details and preparation guides.
+                      Please check your inbox and spam folder for the booking
+                      confirmation email.
                     </p>
                   </div>
                 </div>
 
                 <div className="text-left">
-                  <h3 className="font-bold text-charcoal mb-2">What's Next?</h3>
+                  <h3 className="font-bold text-charcoal mb-2">What’s Next?</h3>
                   <ul className="text-gray-600 text-sm space-y-2">
-                    <li>• Check your email for trek details and itinerary</li>
-                    <li>• Prepare according to the guidelines provided</li>
-                    <li>• Bring all required gear listed in the email</li>
-                    <li>• Arrive 30 minutes early on the trek start date</li>
+                    <li>• Review trek details and itinerary</li>
+                    <li>• Prepare according to the shared guidelines</li>
+                    <li>• Bring all required gear</li>
+                    <li>• Arrive 30 minutes early on the trek day</li>
                   </ul>
                 </div>
               </div>
@@ -113,15 +134,14 @@ export default function BookingSuccess() {
                 <Button
                   onClick={() => setLocation("/")}
                   className="bg-maroon hover:bg-forest text-white px-8 py-3 font-bold flex items-center gap-2"
-                  data-testid="button-home"
                 >
                   <HomeIcon size={20} /> Back to Home
                 </Button>
+
                 <Button
                   onClick={() => setLocation("/treks")}
                   variant="outline"
                   className="border-maroon text-maroon hover:bg-maroon/10 px-8 py-3 font-bold"
-                  data-testid="button-explore"
                 >
                   Explore More Treks
                 </Button>
@@ -140,13 +160,12 @@ export default function BookingSuccess() {
               </h1>
 
               <p className="text-lg text-gray-600 mb-8">
-                We couldn't verify your payment. Please contact our support team for assistance.
+                We couldn’t verify your payment. Please contact our support team.
               </p>
 
               <Button
                 onClick={() => setLocation("/")}
                 className="bg-maroon hover:bg-forest text-white px-8 py-3 font-bold"
-                data-testid="button-retry"
               >
                 Go Back Home
               </Button>
