@@ -76,7 +76,7 @@
     "wouter": "^3.3.5",
     "zod": "^3.24.2"
   },
-  "Dependencies": {
+  "devdependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "4.17.21",
     "@types/node": "20.19.27",
