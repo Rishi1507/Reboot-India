@@ -1,9 +1,10 @@
-import { pgTable, text, serial, integer, boolean, jsonb } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
-import { z } from "zod";
+import { pgTable, text, serial, integer, jsonb } from "drizzle-orm/pg-core"
+import { createInsertSchema } from "drizzle-zod"
+import { z } from "zod"
 
-// We define schemas here to ensure consistent types across the app,
-// even though we are using static data for this specific project.
+/* -------------------------------------------------------------------------- */
+/*                                   TABLES                                   */
+/* -------------------------------------------------------------------------- */
 
 export const treks = pgTable("treks", {
   id: serial("id").primaryKey(),
@@ -14,11 +15,11 @@ export const treks = pgTable("treks", {
   season: text("season").notNull(),
   shortDescription: text("short_description").notNull(),
   fullDescription: text("full_description").notNull(),
-  itinerary: jsonb("itinerary").notNull(), // Array of { day: number, title: string, desc: string }
+  itinerary: jsonb("itinerary").notNull(),
   price: text("price").notNull(),
   coverImage: text("cover_image").notNull(),
-  gallery: jsonb("gallery").notNull(), // Array of strings
-});
+  gallery: jsonb("gallery").notNull(),
+})
 
 export const blogs = pgTable("blogs", {
   id: serial("id").primaryKey(),
@@ -26,10 +27,10 @@ export const blogs = pgTable("blogs", {
   title: text("title").notNull(),
   date: text("date").notNull(),
   excerpt: text("excerpt").notNull(),
-  content: text("content").notNull(), // Markdown content
+  content: text("content").notNull(),
   coverImage: text("cover_image").notNull(),
   author: text("author").notNull(),
-});
+})
 
 export const bookings = pgTable("bookings", {
   id: serial("id").primaryKey(),
@@ -43,10 +44,15 @@ export const bookings = pgTable("bookings", {
   paymentStatus: text("payment_status").default("pending").notNull(),
   stripeSessionId: text("stripe_session_id"),
   createdAt: text("created_at").notNull(),
-});
+})
 
-export const insertTrekSchema = createInsertSchema(treks);
-export const insertBlogSchema = createInsertSchema(blogs);
+/* -------------------------------------------------------------------------- */
+/*                                   SCHEMAS                                   */
+/* -------------------------------------------------------------------------- */
+
+export const insertTrekSchema = createInsertSchema(treks)
+export const insertBlogSchema = createInsertSchema(blogs)
+
 export const createBookingSchema = z.object({
   trekSlug: z.string().min(1),
   trekTitle: z.string().min(1),
@@ -55,13 +61,20 @@ export const createBookingSchema = z.object({
   userPhone: z.string().min(10),
   numberOfParticipants: z.number().int().min(1),
   totalPrice: z.number().int().min(1),
-});
+})
 
-export type Trek = typeof treks.$inferSelect;
-export type InsertTrek = z.infer<typeof insertTrekSchema>;
+/* -------------------------------------------------------------------------- */
+/*                                    TYPES                                    */
+/* -------------------------------------------------------------------------- */
 
-export type Blog = typeof blogs.$inferSelect;
-export type InsertBlog = z.infer<typeof insertBlogSchema>;
+// ❗ Infer the server insert input types from Drizzle ORM, not from Zod
+export type InsertTrek = typeof treks.$inferInsert
+export type InsertBlog = typeof blogs.$inferInsert
 
-export type Booking = typeof bookings.$inferSelect;
-export type CreateBookingRequest = z.infer<typeof createBookingSchema>;
+// Zod-based validated request type
+export type CreateBookingRequest = z.infer<typeof createBookingSchema>
+
+// Use the $inferSelect types for fetch results
+export type Trek = typeof treks.$inferSelect
+export type Blog = typeof blogs.$inferSelect
+export type Booking = typeof bookings.$inferSelect
