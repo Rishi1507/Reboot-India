@@ -11,9 +11,9 @@ const app = express();
 app.use(
   cors({
     origin: [
-      "http://localhost:5173",          // local dev
-      "https://your-vercel-app.vercel.app" // replace later
-    ],
+      "http://localhost:5173",
+      process.env.FRONTEND_URL || ""
+    ].filter(Boolean),
     credentials: true,
   })
 );
@@ -26,7 +26,7 @@ app.use(express.urlencoded({ extended: true }));
 // ==============================
 registerRoutes(null, app);
 
-// Health check (Render needs this)
+// Health check
 app.get("/health", (_req, res) => {
   res.json({ status: "ok" });
 });
@@ -42,10 +42,10 @@ app.use((err: any, _req: any, res: any, _next: any) => {
 });
 
 // ==============================
-// START SERVER
+// START SERVER (Railway compatible)
 // ==============================
-const PORT = Number(process.env.PORT) || 5000;
+const PORT = Number(process.env.PORT) || 3000;
 
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Backend running on port ${PORT}`);
 });
