@@ -1,20 +1,37 @@
-import { type Trek, type Blog, type Booking, type CreateBookingRequest } from "@shared/schema";
+import {
+  type Trek,
+  type Blog,
+  type Booking,
+  type CreateBookingRequest,
+  bookings,
+} from "../shared/schema";
+
 import { db } from "./db";
-import { bookings } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
 export interface IStorage {
   getTreks(): Promise<Trek[]>;
-  createBooking(booking: CreateBookingRequest & { paymentStatus: string; createdAt: string }): Promise<Booking>;
+  createBooking(
+    booking: CreateBookingRequest & {
+      paymentStatus: string;
+      createdAt: string;
+    }
+  ): Promise<Booking>;
   updateBooking(id: number, updates: Partial<Booking>): Promise<Booking>;
 }
 
 export class DatabaseStorage implements IStorage {
   async getTreks(): Promise<Trek[]> {
+    // implement later if needed
     return [];
   }
 
-  async createBooking(booking: CreateBookingRequest & { paymentStatus: string; createdAt: string }): Promise<Booking> {
+  async createBooking(
+    booking: CreateBookingRequest & {
+      paymentStatus: string;
+      createdAt: string;
+    }
+  ): Promise<Booking> {
     const [newBooking] = await db
       .insert(bookings)
       .values({
@@ -29,15 +46,20 @@ export class DatabaseStorage implements IStorage {
         createdAt: booking.createdAt,
       })
       .returning();
+
     return newBooking;
   }
 
-  async updateBooking(id: number, updates: Partial<Booking>): Promise<Booking> {
+  async updateBooking(
+    id: number,
+    updates: Partial<Booking>
+  ): Promise<Booking> {
     const [updated] = await db
       .update(bookings)
       .set(updates)
       .where(eq(bookings.id, id))
       .returning();
+
     return updated;
   }
 }
