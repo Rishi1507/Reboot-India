@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    /* Language & runtime */
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2020", "DOM"],
+
+    /* Project structure */
+    "rootDir": ".",
+    "outDir": "dist",
+
+    /* Type safety */
+    "strict": true,
+    "skipLibCheck": true,
+
+    /* Interop */
+    "resolveJsonModule": true
+  },
+
+  "include": [
+    "*.ts",
+    "shared/**/*.ts"
+  ],
+
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}
