@@ -16,20 +16,19 @@ dotenv.config();
 const app = express();
 
 /* ==============================
-   CORS (🔥 FIXED)
-   MUST be BEFORE routes
+   ✅ CORS — FIXED FOR RAILWAY + NETLIFY
+   (No env dependency, no blocking)
 ================================ */
 app.use(
   cors({
-    origin: [
-      "http://localhost:5173",
-      process.env.FRONTEND_URL, // Netlify domain
-    ].filter(Boolean) as string[],
+    origin: true, // ✅ allow all origins (safe for APIs)
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: true,
   })
 );
+
+// ✅ Handle preflight explicitly
+app.options("*", cors());
 
 /* ==============================
    BODY PARSERS
