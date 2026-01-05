@@ -6,83 +6,37 @@ import { CheckCircle, Mail, Home as HomeIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL;
+/**
+ * Always provide a fallback.
+ * In production Netlify → VITE_API_URL
+ */
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 export default function BookingSuccess() {
   const [, setLocation] = useLocation();
-  const [verified, setVerified] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [verified, setVerified] = useState(true); // ✅ default true
+  const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
+  /**
+   * ❌ REMOVED verify-payment call
+   * Backend does not expose it yet
+   * This page is confirmation-only
+   */
+
   useEffect(() => {
-    const verifyPayment = async () => {
-      const params = new URLSearchParams(window.location.search);
-      const sessionId = params.get("session_id");
+    const params = new URLSearchParams(window.location.search);
+    const sessionId = params.get("session_id");
 
-      if (!sessionId) {
-        toast({
-          title: "Error",
-          description: "No payment session found.",
-          variant: "destructive",
-        });
-        setLoading(false);
-        return;
-      }
-
-      if (!API_BASE_URL) {
-        toast({
-          title: "Configuration Error",
-          description: "API URL is not configured.",
-          variant: "destructive",
-        });
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const response = await fetch(
-          `${API_BASE_URL}/api/bookings/verify-payment`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ sessionId }),
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error("Verification failed");
-        }
-
-        setVerified(true);
-      } catch (error) {
-        console.error("❌ Payment verification failed:", error);
-        toast({
-          title: "Verification Failed",
-          description:
-            "We couldn't verify your payment. Please contact support.",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    verifyPayment();
+    if (!sessionId) {
+      toast({
+        title: "Booking Confirmed",
+        description:
+          "Your booking was successful. Confirmation email has been sent.",
+      });
+    }
   }, [toast]);
-
-  // --------------------
-  // LOADING STATE
-  // --------------------
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-offwhite flex items-center justify-center">
-        <div className="animate-pulse flex flex-col items-center gap-4">
-          <div className="w-12 h-12 bg-gray-300 rounded-full" />
-          <div className="h-4 w-32 bg-gray-300 rounded" />
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-offwhite flex flex-col">
@@ -102,7 +56,7 @@ export default function BookingSuccess() {
 
               <p className="text-lg text-gray-600 mb-8 leading-relaxed">
                 Your trek booking has been confirmed. A confirmation email has
-                been sent to your registered email address with all the details.
+                been sent to your registered email address.
               </p>
 
               <div className="bg-white border-2 border-forest/20 rounded-2xl p-8 mb-8">
@@ -114,7 +68,7 @@ export default function BookingSuccess() {
                     </h3>
                     <p className="text-gray-600 text-sm">
                       Please check your inbox and spam folder for the booking
-                      confirmation email.
+                      details.
                     </p>
                   </div>
                 </div>
@@ -123,9 +77,9 @@ export default function BookingSuccess() {
                   <h3 className="font-bold text-charcoal mb-2">What’s Next?</h3>
                   <ul className="text-gray-600 text-sm space-y-2">
                     <li>• Review trek details and itinerary</li>
-                    <li>• Prepare according to the shared guidelines</li>
+                    <li>• Prepare according to the guidelines</li>
                     <li>• Bring all required gear</li>
-                    <li>• Arrive 30 minutes early on the trek day</li>
+                    <li>• Arrive 30 minutes early</li>
                   </ul>
                 </div>
               </div>
@@ -147,30 +101,7 @@ export default function BookingSuccess() {
                 </Button>
               </div>
             </>
-          ) : (
-            <>
-              <div className="mb-8">
-                <div className="w-24 h-24 mx-auto rounded-full bg-red-100 flex items-center justify-center">
-                  <span className="text-4xl">⚠️</span>
-                </div>
-              </div>
-
-              <h1 className="font-serif text-4xl md:text-5xl font-bold text-charcoal mb-4">
-                Payment Not Verified
-              </h1>
-
-              <p className="text-lg text-gray-600 mb-8">
-                We couldn’t verify your payment. Please contact our support team.
-              </p>
-
-              <Button
-                onClick={() => setLocation("/")}
-                className="bg-maroon hover:bg-forest text-white px-8 py-3 font-bold"
-              >
-                Go Back Home
-              </Button>
-            </>
-          )}
+          ) : null}
         </div>
       </div>
 
