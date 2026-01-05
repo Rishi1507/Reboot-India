@@ -19,6 +19,9 @@ interface BookingModalProps {
   pricePerPerson: string;
 }
 
+// ✅ API base URL from env
+const API_BASE_URL = import.meta.env.VITE_API_URL;
+
 export function BookingModal({
   open,
   onOpenChange,
@@ -41,12 +44,24 @@ export function BookingModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!API_BASE_URL) {
+      toast({
+        title: "Configuration Error",
+        description: "API URL is not configured.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const res = await fetch("http://localhost:5000/api/bookings", {
+      const res = await fetch(`${API_BASE_URL}/api/bookings`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
           trekSlug,
           trekTitle,
@@ -71,7 +86,6 @@ export function BookingModal({
           "Your booking details have been submitted. Our team will contact you shortly.",
       });
 
-      // Reset form & close modal
       setFormData({
         userName: "",
         userEmail: "",
@@ -81,6 +95,7 @@ export function BookingModal({
 
       onOpenChange(false);
     } catch (error) {
+      console.error("❌ Booking error:", error);
       toast({
         title: "Booking Failed",
         description:
