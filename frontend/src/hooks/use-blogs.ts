@@ -1,25 +1,63 @@
 import { useQuery } from "@tanstack/react-query";
-import { blogs } from "@/data/blogs";
+import { sanityClient } from "@/lib/sanity";
 import { Blog } from "@shared/schema";
 
+/**
+ * Fetch all blogs (listing page)
+ */
 export function useBlogs() {
   return useQuery({
-    queryKey: ['/api/blogs'],
+    queryKey: ["blogs"],
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    cacheTime: 1000 * 60 * 30, // 30 minutes
     queryFn: async (): Promise<Blog[]> => {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      return blogs;
+      return sanityClient.fetch(`
+        *[_type == "blog" && defined(slug.current)]
+        | order(publishedAt desc) {
+          title,
+          "slug": slug.current,
+          excerpt,
+          coverImage,
+          publishedAt
+        }
+      `);
     },
   });
 }
 
+/**
+ * Fetch single blog by slug (detail page)
+ */
 export function useBlog(slug: string) {
   return useQuery({
-    queryKey: ['/api/blogs', slug],
+    queryKey: ["blogs", slug],
+    enabled: !!slug,
+    staleTime: 1000 * 60 * 5,
+    cacheTime: 1000 * 60 * 30,
     queryFn: async (): Promise<Blog | null> => {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      const blog = blogs.find(b => b.slug === slug);
-      if (!blog) return null;
-      return blog;
+      return sanityClient.fetch(
+        `
+        *[_type == "blog" && slug.current == $slug][0] {
+          title,
+          "slug": slug.current,
+          excerpt,
+          content,
+          coverImage,
+          publishedAt,
+
+          // SEO
+          seoTitle,
+          seoDescription,
+
+          // FAQs
+          faqs[] {
+            question,
+            answer
+          }
+        }
+        `,
+        { slug }
+      );
     },
   });
 }

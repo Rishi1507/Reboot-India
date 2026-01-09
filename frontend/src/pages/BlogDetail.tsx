@@ -2,7 +2,9 @@ import { useBlog } from "@/hooks/use-blogs";
 import { useRoute, Link } from "wouter";
 import { Navigation } from "@/components/Navigation";
 import { Footer } from "@/components/Footer";
-import ReactMarkdown from "react-markdown";
+import { PortableText } from "@portabletext/react";
+import { urlFor } from "@/lib/sanityImage";
+import { Helmet } from "react-helmet-async";
 
 export default function BlogDetail() {
   const [, params] = useRoute("/blog/:slug");
@@ -16,42 +18,105 @@ export default function BlogDetail() {
     );
   }
 
+  const faqSchema =
+    blog.faqs && blog.faqs.length > 0
+      ? {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: blog.faqs.map((faq: any) => ({
+            "@type": "Question",
+            name: faq.question,
+            acceptedAnswer: {
+              "@type": "Answer",
+              text: faq.answer,
+            },
+          })),
+        }
+      : null;
+
   return (
     <div className="min-h-screen bg-white">
+      <Helmet>
+        <title>{blog.seoTitle || blog.title}</title>
+        <meta
+          name="description"
+          content={blog.seoDescription || blog.excerpt}
+        />
+
+        <meta property="og:title" content={blog.seoTitle || blog.title} />
+        <meta
+          property="og:description"
+          content={blog.seoDescription || blog.excerpt}
+        />
+        {blog.coverImage && (
+          <meta
+            property="og:image"
+            content={urlFor(blog.coverImage).width(1200).url()}
+          />
+        )}
+        <meta property="og:type" content="article" />
+        <meta name="twitter:card" content="summary_large_image" />
+
+        {faqSchema && (
+          <script type="application/ld+json">
+            {JSON.stringify(faqSchema)}
+          </script>
+        )}
+      </Helmet>
+
       <Navigation />
 
-      {/* Article Header */}
+      {/* HEADER */}
       <div className="pt-32 pb-12 md:pt-40 container mx-auto px-4 md:px-6 max-w-4xl text-center">
-        <div className="flex items-center justify-center gap-4 text-sm font-medium text-gray-500 uppercase tracking-wider mb-6">
-          <span>{blog.date}</span>
-          <span className="w-1 h-1 rounded-full bg-gray-300" />
-          <span>{blog.author}</span>
-        </div>
-        <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl font-bold text-charcoal mb-12 leading-tight">
+        {blog.publishedAt && (
+          <div className="text-sm text-gray-500 uppercase tracking-wider mb-6">
+            {new Date(blog.publishedAt).toLocaleDateString("en-IN", {
+              day: "numeric",
+              month: "long",
+              year: "numeric",
+            })}
+          </div>
+        )}
+
+        <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl font-bold text-charcoal mb-12">
           {blog.title}
         </h1>
       </div>
 
-      {/* Featured Image */}
-      <div className="container mx-auto px-4 md:px-6 max-w-5xl mb-16">
-        <div className="aspect-[21/9] rounded-2xl overflow-hidden shadow-lg">
-          <img 
-            src={blog.coverImage} 
-            alt={blog.title} 
-            className="w-full h-full object-cover"
+      {/* IMAGE */}
+      {blog.coverImage && (
+        <div className="container mx-auto px-4 md:px-6 max-w-5xl mb-16">
+          <img
+            src={urlFor(blog.coverImage).width(1600).url()}
+            alt={blog.title}
+            className="rounded-2xl shadow-lg w-full"
           />
         </div>
-      </div>
+      )}
 
-      {/* Content */}
+      {/* CONTENT */}
       <div className="container mx-auto px-4 md:px-6 max-w-3xl pb-24">
-        <article className="prose prose-lg prose-headings:font-serif prose-headings:text-charcoal prose-p:text-gray-600 prose-p:leading-loose prose-a:text-maroon prose-img:rounded-xl prose-blockquote:border-l-maroon prose-blockquote:bg-gray-50 prose-blockquote:py-2 prose-blockquote:px-6 prose-blockquote:not-italic mx-auto">
-          <ReactMarkdown>{blog.content}</ReactMarkdown>
+        <article className="prose prose-lg mx-auto">
+          <PortableText value={blog.content} />
         </article>
 
-        <div className="mt-16 pt-8 border-t border-gray-100 flex justify-center">
+        {blog.faqs && blog.faqs.length > 0 && (
+          <div className="mt-20">
+            <h2 className="font-serif text-3xl mb-6">
+              Frequently Asked Questions
+            </h2>
+            {blog.faqs.map((faq: any, i: number) => (
+              <div key={i} className="mb-4">
+                <h3 className="font-semibold">{faq.question}</h3>
+                <p className="text-gray-600">{faq.answer}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-16 pt-8 border-t flex justify-center">
           <Link href="/blog">
-            <button className="px-8 py-3 border border-gray-200 hover:border-maroon hover:text-maroon rounded-full transition-colors font-medium">
+            <button className="px-8 py-3 border rounded-full">
               ← Back to Journal
             </button>
           </Link>

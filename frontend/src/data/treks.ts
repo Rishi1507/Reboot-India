@@ -26,7 +26,7 @@ export const treks: Trek[] = [
       "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&q=80&w=800"
     ]
   },
-  {
+ {
     id: 2,
     slug: "hampta-pass",
     title: "Hampta Pass Trek",
@@ -129,6 +129,7 @@ export const treks: Trek[] = [
       "https://images.unsplash.com/photo-1433086966358-54859d0ed716?auto=format&fit=crop&q=80&w=800"
     ]
   },
+
   {
     id: 6,
     slug: "sandakphu-trek",

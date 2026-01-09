@@ -1,4 +1,4 @@
-import { Blog } from "@shared/schema";
+/*import { Blog } from "@shared/schema";
 
 export const blogs: Blog[] = [
   {
@@ -119,4 +119,4 @@ Embrace the cold!
     coverImage: "/blog/winter-trek.png",
     author: "Rishi Raj"
   }
-];
+];*/

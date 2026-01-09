@@ -2,6 +2,7 @@ import { Navigation } from "@/components/Navigation";
 import { Footer } from "@/components/Footer";
 import { useBlogs } from "@/hooks/use-blogs";
 import { Link } from "wouter";
+import { urlFor } from "@/lib/sanityImage";
 
 export default function BlogList() {
   const { data: blogs, isLoading } = useBlogs();
@@ -9,7 +10,8 @@ export default function BlogList() {
   return (
     <div className="min-h-screen bg-offwhite">
       <Navigation />
-      
+
+      {/* HERO */}
       <div className="bg-forest pt-32 pb-16 md:pt-40 md:pb-24 text-white">
         <div className="container mx-auto px-4 md:px-6 text-center">
           <span className="inline-block py-1 px-3 rounded bg-white/10 backdrop-blur text-white/80 text-xs font-bold uppercase tracking-wider mb-4 border border-white/10">
@@ -24,36 +26,58 @@ export default function BlogList() {
         </div>
       </div>
 
+      {/* LIST */}
       <div className="container mx-auto px-4 md:px-6 py-16">
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-96 bg-gray-200 rounded-xl animate-pulse" />
+            {[1, 2, 3, 4].map((i) => (
+              <div
+                key={i}
+                className="h-96 bg-gray-200 rounded-xl animate-pulse"
+              />
             ))}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
             {blogs?.map((blog) => (
-              <Link key={blog.id} href={`/blog/${blog.slug}`}>
+              <Link key={blog.slug} href={`/blog/${blog.slug}`}>
                 <div className="group cursor-pointer flex flex-col h-full">
+                  {/* IMAGE */}
                   <div className="overflow-hidden rounded-2xl aspect-[16/9] mb-6 shadow-sm">
-                    <img 
-                      src={blog.coverImage} 
-                      alt={blog.title} 
-                      className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700 ease-out"
-                    />
+                    {blog.coverImage && (
+                      <img
+                        src={urlFor(blog.coverImage).width(800).height(450).url()}
+                        alt={blog.title}
+                        className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700 ease-out"
+                        loading="lazy"
+                      />
+                    )}
                   </div>
+
+                  {/* META */}
                   <div className="flex items-center gap-4 text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">
-                    <span>{blog.date}</span>
-                    <span className="w-1 h-1 rounded-full bg-gray-300" />
-                    <span>{blog.author}</span>
+                    {blog.publishedAt && (
+                      <span>
+                        {new Date(blog.publishedAt).toLocaleDateString("en-IN", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </span>
+                    )}
                   </div>
+
+                  {/* TITLE */}
                   <h2 className="font-serif text-2xl md:text-3xl font-bold text-charcoal mb-4 group-hover:text-maroon transition-colors">
                     {blog.title}
                   </h2>
+
+                  {/* EXCERPT */}
                   <p className="text-gray-600 leading-relaxed mb-6 line-clamp-3">
                     {blog.excerpt}
                   </p>
+
+                  {/* CTA */}
                   <span className="mt-auto text-maroon font-semibold text-sm group-hover:translate-x-2 transition-transform inline-block">
                     Read Article →
                   </span>
@@ -63,6 +87,7 @@ export default function BlogList() {
           </div>
         )}
       </div>
+      console.log("BLOG SOURCE: SANITY");
 
       <Footer />
     </div>
