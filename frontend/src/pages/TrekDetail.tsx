@@ -2,198 +2,323 @@ import { useTrek } from "@/hooks/use-treks";
 import { useRoute } from "wouter";
 import { Navigation } from "@/components/Navigation";
 import { Footer } from "@/components/Footer";
-import { Calendar, Clock, BarChart, MapPin, Check, ChevronDown, Mountain } from "lucide-react";
-import { useState } from "react";
-import * as Accordion from "@radix-ui/react-accordion";
-import { clsx } from "clsx";
+import {
+  Clock,
+  BarChart,
+  MapPin,
+  Mountain,
+  CalendarCheck,
+} from "lucide-react";
+import { useMemo, useState } from "react";
 import { BookingModal } from "@/components/BookingModal";
+import { AvailabilityCalendar } from "@/components/AvailabilityCalendar";
+import { Seo } from "@/components/Seo";
+import { testimonials } from "@/data/testimonials";
+import { trekFaqs } from "@/data/trekFaqs";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 export default function TrekDetail() {
   const [, params] = useRoute("/treks/:slug");
   const { data: trek, isLoading } = useTrek(params?.slug || "");
-  const [activeImage, setActiveImage] = useState(0);
   const [bookingOpen, setBookingOpen] = useState(false);
+  const [selectedDeparture, setSelectedDeparture] = useState<any>(null);
 
-  if (isLoading || !trek) {
+  const trekData: any = trek || {};
+  const itinerary = Array.isArray(trekData.itinerary)
+    ? trekData.itinerary
+    : [];
+  const season = trekData.season || "All Seasons";
+  const duration = trekData.duration || "Multi-day";
+  const difficulty = trekData.difficulty || "Moderate";
+  const description =
+    trekData.fullDescription || trekData.description || "";
+
+  const reviewSchema = useMemo(() => {
+    if (!trekData?.title) return null;
+    const reviews = testimonials.slice(0, 2).map((t) => ({
+      "@type": "Review",
+      author: t.name,
+      reviewRating: {
+        "@type": "Rating",
+        ratingValue: t.rating,
+      },
+      reviewBody: t.quote,
+    }));
+
+    return {
+      "@context": "https://schema.org",
+      "@type": "TouristTrip",
+      name: trekData.title,
+      description,
+      image: trekData.coverImage || undefined,
+      offers: {
+        "@type": "Offer",
+        price: String(trekData.price || ""),
+        priceCurrency: "INR",
+        availability: "https://schema.org/InStock",
+      },
+      aggregateRating: {
+        "@type": "AggregateRating",
+        ratingValue: "4.8",
+        reviewCount: "128",
+      },
+      review: reviews,
+    };
+  }, [description, trekData.coverImage, trekData.price, trekData.title]);
+
+  const faqSchema = useMemo(
+    () => ({
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      mainEntity: trekFaqs.map((faq) => ({
+        "@type": "Question",
+        name: faq.question,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: faq.answer,
+        },
+      })),
+    }),
+    []
+  );
+
+  if (isLoading)
     return (
-      <div className="min-h-screen bg-offwhite flex items-center justify-center">
-        <div className="animate-pulse flex flex-col items-center gap-4">
-          <div className="w-12 h-12 bg-gray-300 rounded-full" />
-          <div className="h-4 w-32 bg-gray-300 rounded" />
-        </div>
+      <div className="h-screen flex items-center justify-center">
+        Loading...
       </div>
     );
-  }
 
-  // Cast itinerary to expected type since it's jsonb in schema
-  const itinerary = trek.itinerary as { day: number; title: string; desc: string }[];
-  const gallery = trek.gallery as string[];
+  if (!trek)
+    return (
+      <div className="h-screen flex items-center justify-center">
+        Trek not found
+      </div>
+    );
 
   return (
     <div className="min-h-screen bg-offwhite">
+      <Seo
+        title={`${trek.title} | Reboot India`}
+        description={description.slice(0, 160)}
+        canonical={`https://rebootindia.co.in/treks/${trek.slug}`}
+        image={trek.coverImage}
+        structuredData={[reviewSchema, faqSchema].filter(Boolean) as object[]}
+      />
       <Navigation />
 
-      {/* Hero */}
-      <div className="relative h-[80vh] min-h-[600px]">
-        <div className="absolute inset-0">
-          <img 
-            src={trek.coverImage} 
-            alt={trek.title}
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-black/30" />
-        </div>
-        
-        <div className="absolute bottom-0 left-0 right-0 p-8 pb-16 md:pb-24">
-          <div className="container mx-auto px-4 md:px-6">
-            <span className="inline-block py-1 px-3 rounded bg-white/20 backdrop-blur text-white text-xs font-bold uppercase tracking-wider mb-4 border border-white/20">
-              {trek.season}
-            </span>
-            <h1 className="font-serif text-5xl md:text-7xl font-bold text-white mb-6">
-              {trek.title}
-            </h1>
-            <div className="flex flex-wrap items-center gap-6 text-white/90 font-medium">
-              <div className="flex items-center gap-2">
-                <Clock className="text-maroon" /> {trek.duration}
+      {/* HERO */}
+      <div className="relative h-[65vh] bg-black">
+        <img
+          src={trek.coverImage || "/images/treks/fallback.svg"}
+          alt={trek.title}
+          className="w-full h-full object-cover opacity-90"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+        <div className="absolute bottom-8 left-0 right-0">
+          <div className="container mx-auto px-4">
+            <div className="text-white">
+              <div className="text-sm uppercase tracking-widest text-white/70">
+                Himalayan Treks
               </div>
-              <div className="flex items-center gap-2">
-                <BarChart className="text-maroon" /> {trek.difficulty}
-              </div>
-              <div className="flex items-center gap-2">
-                <MapPin className="text-maroon" /> Himalayan Range
+              <h1 className="font-serif text-4xl md:text-5xl font-bold">
+                {trek.title}
+              </h1>
+              <div className="mt-3 flex flex-wrap items-center gap-4 text-white/80">
+                <span className="flex items-center gap-2">
+                  <Clock size={16} /> {duration}
+                </span>
+                <span className="flex items-center gap-2">
+                  <BarChart size={16} /> {difficulty}
+                </span>
+                <span className="flex items-center gap-2">
+                  <MapPin size={16} /> Himalayas
+                </span>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 md:px-6 py-12 relative">
-        <div className="flex flex-col lg:flex-row gap-12">
-          
-          {/* Main Content */}
-          <div className="lg:w-2/3 space-y-16">
-            {/* Overview */}
-            <section>
-              <h2 className="font-serif text-3xl font-bold text-charcoal mb-6">Overview</h2>
-              <p className="text-gray-600 leading-relaxed text-lg">
-                {trek.fullDescription}
-              </p>
-            </section>
-
-            {/* Gallery */}
-            <section>
-              <h2 className="font-serif text-3xl font-bold text-charcoal mb-6">Photo Gallery</h2>
-              <div className="grid grid-cols-3 gap-4">
-                {gallery.map((img, idx) => (
-                  <div 
-                    key={idx} 
-                    className="aspect-square rounded-xl overflow-hidden cursor-pointer group"
-                    onClick={() => setActiveImage(idx)}
-                  >
-                    <img 
-                      src={img} 
-                      alt={`Gallery ${idx + 1}`} 
-                      className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500"
-                    />
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            {/* Itinerary */}
-            <section>
-              <h2 className="font-serif text-3xl font-bold text-charcoal mb-6">Day by Day Itinerary</h2>
-              <Accordion.Root type="single" collapsible className="space-y-4">
-                {itinerary.map((day) => (
-                  <Accordion.Item 
-                    key={day.day} 
-                    value={`day-${day.day}`}
-                    className="border border-gray-200 rounded-xl overflow-hidden bg-white hover:border-maroon/30 transition-colors"
-                  >
-                    <Accordion.Header>
-                      <Accordion.Trigger className="w-full flex items-center justify-between p-5 text-left group">
-                        <div className="flex items-center gap-4">
-                          <span className="w-8 h-8 rounded-full bg-maroon/10 text-maroon flex items-center justify-center font-bold text-sm">
-                            {day.day}
-                          </span>
-                          <span className="font-serif text-lg font-semibold text-charcoal group-hover:text-maroon transition-colors">
-                            {day.title}
-                          </span>
-                        </div>
-                        <ChevronDown className="text-gray-400 group-data-[state=open]:rotate-180 transition-transform duration-300" />
-                      </Accordion.Trigger>
-                    </Accordion.Header>
-                    <Accordion.Content className="data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up overflow-hidden">
-                      <div className="p-5 pt-0 pl-[4.5rem] text-gray-600 leading-relaxed pb-6">
-                        {day.desc}
-                      </div>
-                    </Accordion.Content>
-                  </Accordion.Item>
-                ))}
-              </Accordion.Root>
-            </section>
-          </div>
-
-          {/* Sidebar */}
-          <div className="lg:w-1/3">
-            <div className="sticky top-24 bg-white rounded-2xl shadow-xl shadow-black/5 border border-gray-100 p-8">
-              <div className="text-center mb-8">
-                <span className="text-gray-500 text-sm uppercase tracking-wide font-medium">Starting From</span>
-                <div className="text-4xl font-serif font-bold text-maroon mt-2">{trek.price}</div>
-                <div className="text-xs text-gray-400 mt-1">per person including GST</div>
-              </div>
-
-              <button 
-                onClick={() => setBookingOpen(true)}
-                className="w-full py-4 bg-maroon hover:bg-forest text-white rounded-xl font-bold text-lg shadow-lg shadow-maroon/20 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 mb-6"
-                data-testid="button-book-trek"
-              >
-                Book This Trek
-              </button>
-
-              <BookingModal
-                open={bookingOpen}
-                onOpenChange={setBookingOpen}
-                trekSlug={trek.slug}
-                trekTitle={trek.title}
-                pricePerPerson={trek.price}
-              />
-
-              <div className="space-y-4 text-sm text-gray-600 border-t border-gray-100 pt-6">
-                <div className="flex items-start gap-3">
-                  <Check size={18} className="text-forest mt-0.5" />
-                  <span>Expert Trek Leaders & Guides</span>
-                </div>
-                <div className="flex items-start gap-3">
-                  <Check size={18} className="text-forest mt-0.5" />
-                  <span>All meals during the trek</span>
-                </div>
-                <div className="flex items-start gap-3">
-                  <Check size={18} className="text-forest mt-0.5" />
-                  <span>Camping Equipment (Tents, Sleeping bags)</span>
-                </div>
-                <div className="flex items-start gap-3">
-                  <Check size={18} className="text-forest mt-0.5" />
-                  <span>Forest Permits & Camping Charges</span>
+      {/* CONTENT */}
+      <div className="container mx-auto px-4 py-10">
+        <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-10">
+          {/* MAIN */}
+          <div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-white rounded-2xl border p-4">
+              <div className="flex items-center gap-3">
+                <Mountain className="text-maroon" size={18} />
+                <div>
+                  <div className="text-xs text-gray-500">Season</div>
+                  <div className="text-sm font-semibold">{season}</div>
                 </div>
               </div>
-
-              <div className="mt-8 pt-6 border-t border-gray-100">
-                <h4 className="font-serif font-bold text-charcoal mb-4">Upcoming Batches</h4>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center p-3 rounded-lg bg-gray-50 border border-gray-100 hover:border-maroon/30 cursor-pointer transition-colors">
-                    <span className="font-medium text-gray-700">Dec 15 - Dec 20</span>
-                    <span className="text-xs font-bold text-green-600 bg-green-100 px-2 py-1 rounded">Available</span>
-                  </div>
-                  <div className="flex justify-between items-center p-3 rounded-lg bg-gray-50 border border-gray-100 hover:border-maroon/30 cursor-pointer transition-colors">
-                    <span className="font-medium text-gray-700">Dec 22 - Dec 27</span>
-                    <span className="text-xs font-bold text-orange-600 bg-orange-100 px-2 py-1 rounded">Fast Filling</span>
+              <div className="flex items-center gap-3">
+                <Clock className="text-maroon" size={18} />
+                <div>
+                  <div className="text-xs text-gray-500">Duration</div>
+                  <div className="text-sm font-semibold">{duration}</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <BarChart className="text-maroon" size={18} />
+                <div>
+                  <div className="text-xs text-gray-500">Difficulty</div>
+                  <div className="text-sm font-semibold">{difficulty}</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <CalendarCheck className="text-maroon" size={18} />
+                <div>
+                  <div className="text-xs text-gray-500">Batches</div>
+                  <div className="text-sm font-semibold">
+                    {(trek.departures || []).length}
                   </div>
                 </div>
               </div>
             </div>
+
+            <div className="mt-8">
+              <h2 className="font-serif text-2xl font-bold">
+                Trek to the high Himalayas
+              </h2>
+              <p className="mt-4 text-gray-700 leading-relaxed">
+                {description}
+              </p>
+            </div>
+
+            {itinerary.length > 0 ? (
+              <div className="mt-10">
+                <h3 className="font-serif text-xl font-bold">
+                  Quick Itinerary
+                </h3>
+                <div className="mt-4 space-y-3">
+                  {itinerary.map((day: any) => (
+                    <div
+                      key={`${day.day}-${day.title}`}
+                      className="border rounded-xl p-4 bg-white"
+                    >
+                      <div className="text-sm text-gray-500">
+                        Day {day.day}
+                      </div>
+                      <div className="font-semibold">{day.title}</div>
+                      <div className="text-sm text-gray-600 mt-1">
+                        {day.desc}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            <div className="mt-12">
+              <h3 className="font-serif text-2xl font-bold">
+                Trekker Reviews
+              </h3>
+              <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                {testimonials.map((t) => (
+                  <div
+                    key={`${t.name}-${t.location}`}
+                    className="rounded-2xl border bg-white p-5 shadow-sm"
+                  >
+                    <div className="text-sm text-gray-500">
+                      {t.location}
+                    </div>
+                    <div className="font-semibold mt-1">{t.name}</div>
+                    <div className="mt-3 text-gray-700 text-sm">
+                      {t.quote}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-12">
+              <h3 className="font-serif text-2xl font-bold">
+                FAQs
+              </h3>
+              <div className="mt-4">
+                <Accordion type="single" collapsible>
+                  {trekFaqs.map((faq, index) => (
+                    <AccordionItem
+                      key={faq.question}
+                      value={`faq-${index}`}
+                    >
+                      <AccordionTrigger>
+                        {faq.question}
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        {faq.answer}
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              </div>
+            </div>
+          </div>
+
+          {/* SIDEBAR */}
+          <div className="lg:sticky lg:top-24 h-fit space-y-4">
+            <div className="rounded-2xl border bg-white p-5 shadow-sm">
+              <div className="text-sm text-gray-500">Trek Fee</div>
+              <div className="text-3xl font-bold text-charcoal mt-1">
+                {trek.discountedPrice
+                  ? `₹${trek.discountedPrice}`
+                  : trek.price || `₹${selectedDeparture?.pricePerSeat || ""}`}
+              </div>
+              {trek.originalPrice ? (
+                <div className="text-sm text-gray-500 line-through">
+                  ₹{trek.originalPrice}
+                </div>
+              ) : null}
+              <div className="text-xs text-gray-500 mt-1">
+                Per person
+              </div>
+
+              <div className="mt-4">
+                <button
+                  disabled={!selectedDeparture}
+                  onClick={() => setBookingOpen(true)}
+                  className="w-full bg-maroon hover:bg-forest disabled:opacity-40 text-white px-6 py-3 rounded font-bold"
+                >
+                  {selectedDeparture ? "Book Trek" : "Select a Date"}
+                </button>
+              </div>
+
+              {selectedDeparture ? (
+                <div className="mt-3 text-sm text-gray-600">
+                  Selected:{" "}
+                  <span className="font-semibold">
+                    {new Date(
+                      selectedDeparture.startDate
+                    ).toDateString()}
+                  </span>
+                </div>
+              ) : null}
+            </div>
+
+            <AvailabilityCalendar
+              departures={trek.departures || []}
+              selectedDepartureId={selectedDeparture?.id}
+              onSelect={(d) => setSelectedDeparture(d)}
+            />
           </div>
         </div>
+
+        {/* BOOKING MODAL */}
+        <BookingModal
+          open={bookingOpen}
+          onOpenChange={setBookingOpen}
+          trekId={trek.id}
+          trekTitle={trek.title}
+          departureId={selectedDeparture?.id}
+          pricePerSeat={selectedDeparture?.pricePerSeat}
+        />
       </div>
 
       <Footer />

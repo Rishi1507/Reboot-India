@@ -4,22 +4,64 @@ import { TrekCard } from "@/components/TrekCard";
 
 import { useTreks } from "@/hooks/use-treks";
 import { Search } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useLocation } from "wouter";
+import { Seo } from "@/components/Seo";
 
 export default function TreksList() {
   const { data: treks, isLoading } = useTreks();
+  const [location] = useLocation();
   const [filter, setFilter] = useState("all");
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState("popular");
 
-  const filteredTreks = treks?.filter(trek => {
+  const parsePrice = (price: string) =>
+    Number(String(price || "").replace(/[^0-9]/g, "")) || 0;
+  const parseDays = (duration: string) => {
+    const match = String(duration || "").match(/(\d+)/);
+    return match ? Number(match[1]) : 0;
+  };
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const seasonParam = params.get("season");
+    if (seasonParam) {
+      setSearch(seasonParam);
+    }
+  }, [location]);
+
+  const filteredTreks = treks?.filter((trek) => {
+    const difficulty = (trek?.difficulty || "").toLowerCase();
+    const title = (trek?.title || "").toLowerCase();
+    const season = (trek?.season || "").toLowerCase();
+    const searchTerm = search.trim().toLowerCase();
+    const matchesSearch =
+      !searchTerm ||
+      title.includes(searchTerm) ||
+      season.includes(searchTerm);
+    if (!matchesSearch) return false;
     if (filter === "all") return true;
-    if (filter === "easy") return trek.difficulty.toLowerCase().includes("easy");
-    if (filter === "moderate") return trek.difficulty.toLowerCase().includes("moderate") && !trek.difficulty.toLowerCase().includes("easy");
-    if (filter === "difficult") return trek.difficulty.toLowerCase().includes("difficult");
-    return true;
+    if (filter === "easy") return difficulty.includes("easy");
+    if (filter === "moderate")
+      return difficulty.includes("moderate") && !difficulty.includes("easy");
+    if (filter === "difficult") return difficulty.includes("difficult");
+    return matchesSearch;
+  });
+
+  const sortedTreks = filteredTreks?.slice().sort((a: any, b: any) => {
+    if (sort === "price-low") return parsePrice(a.price) - parsePrice(b.price);
+    if (sort === "price-high") return parsePrice(b.price) - parsePrice(a.price);
+    if (sort === "duration") return parseDays(a.duration) - parseDays(b.duration);
+    return 0;
   });
 
   return (
     <div className="min-h-screen bg-offwhite">
+      <Seo
+        title="All Treks | Reboot India"
+        description="Explore curated Himalayan treks with dates, difficulty levels, and seasonal highlights."
+        canonical="https://rebootindia.co.in/treks"
+      />
       <Navigation />
       
       {/* Header */}
@@ -53,13 +95,27 @@ export default function TreksList() {
             ))}
           </div>
 
-          <div className="relative w-full md:w-80">
+          <div className="flex gap-3 w-full md:w-auto">
+            <div className="relative w-full md:w-80">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             <input 
               type="text" 
               placeholder="Search by name..." 
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-maroon focus:ring-1 focus:ring-maroon transition-all"
             />
+            </div>
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value)}
+              className="w-full md:w-48 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-maroon focus:ring-1 focus:ring-maroon transition-all"
+            >
+              <option value="popular">Sort: Popular</option>
+              <option value="price-low">Price: Low to High</option>
+              <option value="price-high">Price: High to Low</option>
+              <option value="duration">Duration</option>
+            </select>
           </div>
         </div>
 
@@ -71,7 +127,7 @@ export default function TreksList() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {filteredTreks?.map((trek) => (
+            {sortedTreks?.map((trek) => (
               <TrekCard key={trek.id} trek={trek} />
             ))}
           </div>

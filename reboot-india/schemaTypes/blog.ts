@@ -1,7 +1,7 @@
 import { defineType, defineField } from 'sanity'
 
 export default defineType({
-  name: 'post',
+  name: 'blog',
   title: 'Blogs',
   type: 'document',
   fields: [
@@ -39,6 +39,20 @@ export default defineType({
       name: 'publishedAt',
       title: 'Published At',
       type: 'datetime'
+    }),
+    defineField({
+      name: 'faqs',
+      title: 'FAQs',
+      type: 'array',
+      of: [
+        {
+          type: 'object',
+          fields: [
+            { name: 'question', title: 'Question', type: 'string' },
+            { name: 'answer', title: 'Answer', type: 'text' }
+          ]
+        }
+      ]
     }),
 
     // SEO

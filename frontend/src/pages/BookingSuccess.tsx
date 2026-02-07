@@ -5,6 +5,7 @@ import { Footer } from "@/components/Footer";
 import { CheckCircle, Mail, Home as HomeIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { Seo } from "@/components/Seo";
 
 /**
  * Always provide a fallback.
@@ -40,6 +41,11 @@ export default function BookingSuccess() {
 
   return (
     <div className="min-h-screen bg-offwhite flex flex-col">
+      <Seo
+        title="Booking Confirmed | Reboot India"
+        description="Your trek booking has been confirmed. We have emailed your details and next steps."
+        canonical="https://rebootindia.co.in/booking-success"
+      />
       <Navigation />
 
       <div className="flex-1 flex items-center justify-center px-4 py-12">

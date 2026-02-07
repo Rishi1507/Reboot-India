@@ -12,7 +12,7 @@ export function useBlogs() {
     cacheTime: 1000 * 60 * 30, // 30 minutes
     queryFn: async (): Promise<Blog[]> => {
       return sanityClient.fetch(`
-        *[_type == "blog" && defined(slug.current)]
+        *[_type in ["blog","post"] && defined(slug.current)]
         | order(publishedAt desc) {
           title,
           "slug": slug.current,
@@ -37,7 +37,7 @@ export function useBlog(slug: string) {
     queryFn: async (): Promise<Blog | null> => {
       return sanityClient.fetch(
         `
-        *[_type == "blog" && slug.current == $slug][0] {
+        *[_type in ["blog","post"] && slug.current == $slug][0] {
           title,
           "slug": slug.current,
           excerpt,

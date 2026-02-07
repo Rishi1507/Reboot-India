@@ -15,7 +15,7 @@ export function TrekCard({ trek }: { trek: Trek }) {
             className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700 ease-out"
           />
           <div className="absolute top-4 right-4 z-20 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-semibold text-maroon shadow-sm">
-            {trek.price}
+            {trek.discountedPrice ? `?${trek.discountedPrice}` : trek.price}
           </div>
         </div>
 

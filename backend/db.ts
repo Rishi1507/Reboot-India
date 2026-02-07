@@ -1,38 +1,16 @@
-import { drizzle } from "drizzle-orm/node-postgres";
-import { Pool } from "pg";
-//import * as schema from "@shared/schema";
-import * as schema from "./shared/schema";
-import dotenv from "dotenv";
+import { PrismaClient } from "@prisma/client";
 
-// Load environment variables
-dotenv.config();
-
-// ==============================
-// ENV VALIDATION
-// ==============================
-if (!process.env.DATABASE_URL) {
-  throw new Error(
-    "❌ DATABASE_URL is missing. Please set it in your .env file."
-  );
+declare global {
+  // eslint-disable-next-line no-var
+  var prisma: PrismaClient | undefined;
 }
 
-// ==============================
-// POSTGRES CONNECTION
-// ==============================
-export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+export const prisma =
+  global.prisma ??
+  new PrismaClient({
+    log: ["error", "warn"],
+  });
 
-  // Required for Render, Railway, Supabase, Neon, etc.
-  ssl:
-    process.env.NODE_ENV === "production"
-      ? { rejectUnauthorized: false }
-      : false,
-});
-
-// ==============================
-// DRIZZLE INSTANCE
-// ==============================
-export const db = drizzle(pool, {
-  schema,
-  logger: process.env.NODE_ENV !== "production",
-});
+if (process.env.NODE_ENV !== "production") {
+  global.prisma = prisma;
+}

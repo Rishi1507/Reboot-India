@@ -17,6 +17,8 @@ export const treks = pgTable("treks", {
   fullDescription: text("full_description").notNull(),
   itinerary: jsonb("itinerary").notNull(),
   price: text("price").notNull(),
+  originalPrice: integer("original_price"),
+  discountedPrice: integer("discounted_price"),
   coverImage: text("cover_image").notNull(),
   gallery: jsonb("gallery").notNull(),
 })

@@ -5,7 +5,8 @@ import { useTreks } from "@/hooks/use-treks";
 import { useBlogs } from "@/hooks/use-blogs";
 import { Link } from "wouter";
 import { ArrowRight, Leaf, Shield, Compass } from "lucide-react";
-import { Helmet } from "react-helmet-async";
+import { Seo } from "@/components/Seo";
+import { testimonials } from "@/data/testimonials";
 
 export default function Home() {
   const { data: treks } = useTreks();
@@ -16,58 +17,23 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-offwhite">
-      {/* ================= SEO META ================= */}
-      <Helmet>
-        <title>Himalayan Treks & Nature Retreats | Reboot Your Mind</title>
-
-        <meta
-          name="description"
-          content="Discover curated trekking experiences in the Indian Himalayas. Sustainable travel, expert safety, and offbeat trails designed to help you reconnect with nature."
-        />
-
-        <meta
-          name="keywords"
-          content="Himalayan treks, trekking in India, adventure travel, mountain trekking, nature retreats"
-        />
-
-        <meta name="robots" content="index, follow" />
-
-        <link rel="canonical" href="https://rebootindia.co.in/" />
-
-        {/* Open Graph */}
-        <meta property="og:type" content="website" />
-        <meta property="og:title" content="Himalayan Treks & Nature Retreats" />
-        <meta
-          property="og:description"
-          content="Escape the noise and reconnect with nature through curated Himalayan trekking experiences."
-        />
-        <meta property="og:image" content="https://rebootindia.co.in//og/home.jpg" />
-        <meta property="og:url" content="https://rebootindia.co.in//" />
-
-        {/* Twitter */}
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="Himalayan Treks & Nature Retreats" />
-        <meta
-          name="twitter:description"
-          content="Curated trekking adventures in the Indian Himalayas."
-        />
-        <meta name="twitter:image" content="https://rebootindia.co.in/og/home.jpg" />
-
-        {/* Structured Data */}
-        <script type="application/ld+json">
-          {`
+      <Seo
+        title="Himalayan Treks & Nature Retreats | Reboot India"
+        description="Discover curated trekking experiences in the Indian Himalayas. Sustainable travel, expert safety, and offbeat trails designed to help you reconnect with nature."
+        canonical="https://rebootindia.co.in/"
+        image="https://rebootindia.co.in/og/home.jpg"
+        structuredData={[
           {
             "@context": "https://schema.org",
             "@type": "TravelAgency",
-            "name": "Reboot India",
-            "url": "https://rebootindia.co.in/",
-            "description": "Curated Himalayan trekking experiences focused on sustainability and safety.",
-            "image": "https://rebootindia.co.in//og/home.jpg"
-          }
-        `}
-        </script>
-      </Helmet>
-      {/* ================= END SEO ================= */}
+            name: "Reboot India",
+            url: "https://rebootindia.co.in/",
+            description:
+              "Curated Himalayan trekking experiences focused on sustainability and safety.",
+            image: "https://rebootindia.co.in/og/home.jpg",
+          },
+        ]}
+      />
 
       <Navigation />
 
@@ -76,7 +42,7 @@ export default function Home() {
         <div className="absolute inset-0 z-0">
           <div className="absolute inset-0 bg-black/40 z-10" />
           <img
-            src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&q=80&w=2000"
+            src="/images/treks/home-hero.svg"
             alt="Himalayan Landscape"
             className="w-full h-full object-cover"
           />
@@ -182,11 +148,11 @@ export default function Home() {
       <section className="py-24 bg-forest text-white">
         <div className="container mx-auto px-4 md:px-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {featuredBlogs?.map((blog) => (
+            {featuredBlogs?.map((blog, index) => (
               <Link key={blog.id} href={`/blog/${blog.slug}`}>
                 <div className="cursor-pointer">
                   <img
-                    src={blog.coverImage}
+                    src={`/images/treks/blog-card-${(index % 4) + 1}.svg`}
                     alt={blog.title}
                     className="rounded-xl mb-4"
                   />
@@ -198,6 +164,59 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ================= TESTIMONIALS ================= */}
+<section className="py-24 bg-offwhite">
+  <div className="container mx-auto px-4 md:px-6">
+    <div className="text-center mb-12">
+      <span className="text-maroon font-semibold tracking-widest text-sm uppercase mb-2 block">
+        Trekker Stories
+      </span>
+      <h2 className="font-serif text-4xl md:text-5xl font-bold text-charcoal">
+        Loved By Trekkers
+      </h2>
+    </div>
+
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      {testimonials.map((t) => (
+        <div
+          key={t.id}
+          className="bg-white p-6 rounded-2xl shadow-sm border flex flex-col justify-between"
+        >
+          <div>
+            {/* Rating */}
+            <div className="flex items-center gap-1 mb-3">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <span
+                  key={i}
+                  className={`text-sm ${
+                    i < t.rating ? "text-yellow-400" : "text-gray-300"
+                  }`}
+                >
+                  ★
+                </span>
+              ))}
+            </div>
+
+            {/* Quote */}
+            <p className="text-gray-600 text-sm leading-relaxed mb-4">
+              “{t.quote}”
+            </p>
+          </div>
+
+          {/* Footer */}
+          <div className="pt-4 border-t">
+            <div className="font-semibold text-charcoal">{t.name}</div>
+            <div className="text-xs text-gray-500">
+              {t.location}
+              {t.trek ? ` • ${t.trek}` : ""}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
+      
       <Footer />
     </div>
   );

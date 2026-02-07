@@ -1,29 +1,26 @@
 import { useQuery } from "@tanstack/react-query";
-import { treks } from "@/data/treks";
-import { Trek } from "@shared/schema";
 
-// Simulating API calls with static data
-// In a real app, these would use fetch(api.treks.list.path)
+const API = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 export function useTreks() {
   return useQuery({
-    queryKey: ['/api/treks'],
-    queryFn: async (): Promise<Trek[]> => {
-      // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-      return treks;
+    queryKey: ["treks"],
+    queryFn: async () => {
+      const res = await fetch(`${API}/api/treks`);
+      if (!res.ok) throw new Error("Failed to fetch treks");
+      return res.json();
     },
   });
 }
 
 export function useTrek(slug: string) {
   return useQuery({
-    queryKey: ['/api/treks', slug],
-    queryFn: async (): Promise<Trek | null> => {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      const trek = treks.find(t => t.slug === slug);
-      if (!trek) return null;
-      return trek;
+    queryKey: ["trek", slug],
+    enabled: !!slug,
+    queryFn: async () => {
+      const res = await fetch(`${API}/api/treks/${slug}`);
+      if (!res.ok) throw new Error("Trek not found");
+      return res.json();
     },
   });
 }

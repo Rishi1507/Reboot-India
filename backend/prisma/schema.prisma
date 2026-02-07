@@ -1,0 +1,179 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/* =========================
+   ENUMS
+========================= */
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+  CANCELLED
+}
+
+enum CouponType {
+  AMOUNT
+  PERCENT
+}
+
+enum RedemptionStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+/* =========================
+   MODELS
+========================= */
+
+model Trek {
+  id          String   @id @default(uuid())
+  title       String
+  slug        String   @unique
+  description String
+  duration         String
+  difficulty       String
+  season           String
+  shortDescription String
+  fullDescription  String
+  price            String
+  originalPrice    Int?
+  discountedPrice  Int?
+  coverImage       String
+  gallery          Json
+  itinerary        Json
+  isActive         Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  departures  Departure[]
+  bookings    Booking[]
+}
+
+model Departure {
+  id            String   @id @default(uuid())
+  trekId        String
+  startDate     DateTime
+  endDate       DateTime
+  totalSeats   Int
+  bookedSeats  Int      @default(0)
+  pricePerSeat Int
+  createdAt    DateTime @default(now())
+
+  trek      Trek      @relation(fields: [trekId], references: [id])
+  bookings  Booking[]
+}
+
+model Customer {
+  id        String   @id @default(uuid())
+  fullName String
+  email    String   @unique
+  phone    String
+  createdAt DateTime @default(now())
+
+  bookings Booking[]
+}
+
+model Booking {
+  id                String   @id @default(uuid())
+
+  trekId            String
+  departureId       String
+  customerId        String
+
+  numberOfSeats     Int
+  totalAmount       Int
+  discountAmount    Int      @default(0)
+  finalAmount       Int      @default(0)
+  couponId          String?
+
+  status            BookingStatus @default(PENDING)
+
+  razorpayOrderId    String? @unique
+  razorpayPaymentId String? @unique
+  razorpaySignature String?
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  trek       Trek      @relation(fields: [trekId], references: [id])
+  departure  Departure @relation(fields: [departureId], references: [id])
+  customer   Customer  @relation(fields: [customerId], references: [id])
+  coupon     Coupon?   @relation(fields: [couponId], references: [id])
+  payment    Payment?
+  redemptions CouponRedemption[]
+
+  @@index([trekId])
+  @@index([departureId])
+  @@index([customerId])
+}
+
+model Coupon {
+  id              String   @id @default(uuid())
+  code            String   @unique
+  type            CouponType
+  value           Int
+  validFrom       DateTime?
+  validTo         DateTime?
+  maxUses         Int?
+  maxUsesPerEmail Int?
+  minAmount       Int?
+  usedCount       Int      @default(0)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+
+  redemptions CouponRedemption[]
+  bookings    Booking[]
+}
+
+model CouponRedemption {
+  id           String           @id @default(uuid())
+  couponId     String
+  bookingId    String
+  customerEmail String
+  status       RedemptionStatus @default(PENDING)
+  createdAt    DateTime         @default(now())
+
+  coupon   Coupon  @relation(fields: [couponId], references: [id])
+  booking  Booking @relation(fields: [bookingId], references: [id])
+
+  @@index([couponId])
+  @@index([bookingId])
+}
+
+model Payment {
+  id         String   @id @default(uuid())
+  bookingId  String   @unique
+  provider   String
+  amount     Int
+  status     String
+  orderId    String?
+  paymentId  String?
+  signature  String?
+  createdAt  DateTime @default(now())
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+}
+
+model AdminUser {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  createdAt    DateTime @default(now())
+}
+
+model EmailLog {
+  id        String   @id @default(uuid())
+  to        String
+  subject   String
+  status    String
+  error     String?
+  bookingId String?
+  createdAt DateTime @default(now())
+}

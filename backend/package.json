@@ -6,33 +6,44 @@
   "engines": {
     "node": ">=20.0.0"
   },
-  "main": "dist/index.js",
+  "main": "dist/server.js",
   "scripts": {
-    "dev": "tsx watch index.ts",
-    "build": "tsc -p tsconfig.json",
-    "start": "node dist/backend/index.js",
-    "db:push": "drizzle-kit push"
+    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@prisma/client": "^6.19.2",
+    "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
-    "drizzle-orm": "^0.45.1",
-    "drizzle-zod": "^0.8.3",
-    "express": "^4.21.2",
+    "express": "^4.22.1",
+    "jsonwebtoken": "^9.0.2",
     "nodemailer": "^7.0.12",
     "pg": "^8.16.3",
-    "stripe": "^20.1.0",
-    "tsconfig-paths": "^4.2.0",
+    "prisma": "^6.19.2",
+    "razorpay": "^2.9.6",
+    "recharts": "^3.7.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
-    "@types/express": "^4.17.21",
-    "@types/node": "^20.19.27",
+    "@types/express": "^4.17.25",
+    "@types/jsonwebtoken": "^9.0.6",
+    "@types/node": "^20.19.30",
     "@types/nodemailer": "^7.0.4",
     "@types/pg": "^8.16.0",
-    "drizzle-kit": "^0.31.8",
+    "ts-node-dev": "^2.0.0",
     "tsx": "^4.21.0",
-    "typescript": "^5.6.3"
+    "typescript": "^5.9.3"
+  },
+  "keywords": [],
+  "author": "",
+  "description": "Backend for Reboot India trek booking platform",
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   }
 }

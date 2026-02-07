@@ -2,6 +2,31 @@ import { Trek } from "@shared/schema";
 
 export const treks: Trek[] = [
   {
+    id: 8,
+    slug: "brahmatal-trek",
+    title: "Brahmatal Trek",
+    duration: "6 Days",
+    difficulty: "Moderate",
+    season: "Winter (Dec - Mar)",
+    shortDescription: "A winter trek with frozen lakes and sweeping views of Trishul and Nanda Ghunti.",
+    fullDescription: "Brahmatal is a classic winter trek offering snow-covered forests, alpine ridges, and the famous Brahmatal and Bekaltal lakes. The trail rewards you with panoramic Himalayan views, especially of Trishul and Nanda Ghunti.",
+    itinerary: [
+      { day: 1, title: "Lohajung Arrival", desc: "Drive from Kathgodam to Lohajung." },
+      { day: 2, title: "Lohajung to Bekaltal", desc: "Trek through oak and rhododendron forests to Bekaltal." },
+      { day: 3, title: "Bekaltal to Brahmatal", desc: "Climb to Brahmatal campsite with views of snow peaks." },
+      { day: 4, title: "Summit Day", desc: "Summit ridge walk with views of Trishul and Nanda Ghunti." },
+      { day: 5, title: "Return to Lohajung", desc: "Descend back to Lohajung." },
+      { day: 6, title: "Departure", desc: "Drive back to Kathgodam." }
+    ],
+    price: "₹8,999",
+    coverImage: "/images/treks/brahmatal-cover.svg",
+    gallery: [
+      "/images/treks/brahmatal-gallery-1.svg",
+      "/images/treks/brahmatal-gallery-2.svg",
+      "/images/treks/brahmatal-gallery-3.svg"
+    ]
+  },
+  {
     id: 1,
     slug: "kedarkantha-trek",
     title: "Kedarkantha Trek",
@@ -19,11 +44,11 @@ export const treks: Trek[] = [
       { day: 6, title: "Departure", desc: "Drive back to Dehradun." }
     ],
     price: "₹8,500",
-    coverImage: "https://images.unsplash.com/photo-1518182170546-0766ce6fec93?auto=format&fit=crop&q=80&w=1200", // Winter mountains
+    coverImage: "/images/treks/kedarkantha-cover.svg", // Winter mountains
     gallery: [
-      "https://images.unsplash.com/photo-1483728642387-6c3bdd6c93e5?auto=format&fit=crop&q=80&w=800",
-      "https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&q=80&w=800",
-      "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&q=80&w=800"
+      "/images/treks/kedarkantha-gallery-1.svg",
+      "/images/treks/kedarkantha-gallery-2.svg",
+      "/images/treks/kedarkantha-gallery-3.svg"
     ]
   },
  {
@@ -43,11 +68,11 @@ export const treks: Trek[] = [
       { day: 5, title: "Departure", desc: "Drive from Chatru to Manali." }
     ],
     price: "₹10,200",
-    coverImage: "https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?auto=format&fit=crop&q=80&w=1200", // Tent camping
+    coverImage: "/images/treks/hampta-cover.svg", // Tent camping
     gallery: [
-      "https://images.unsplash.com/photo-1478131143081-80f7f84ca84d?auto=format&fit=crop&q=80&w=800",
-      "https://images.unsplash.com/photo-1533240332313-0db49b459ad6?auto=format&fit=crop&q=80&w=800",
-      "https://images.unsplash.com/photo-1501555088652-021faa106b9b?auto=format&fit=crop&q=80&w=800"
+      "/images/treks/hampta-gallery-1.svg",
+      "/images/treks/hampta-gallery-2.svg",
+      "/images/treks/hampta-gallery-3.svg"
     ]
   },
   {
@@ -70,11 +95,11 @@ export const treks: Trek[] = [
       { day: 8, title: "Departure", desc: "Drive back to Kathgodam." }
     ],
     price: "₹14,500",
-    coverImage: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&q=80&w=1200", // High mountains
+    coverImage: "/images/treks/roopkund-cover.svg", // High mountains
     gallery: [
-      "https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&q=80&w=800",
-      "https://images.unsplash.com/photo-1486870591958-9b9d0d1dda99?auto=format&fit=crop&q=80&w=800",
-      "https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?auto=format&fit=crop&q=80&w=800"
+      "/images/treks/roopkund-gallery-1.svg",
+      "/images/treks/roopkund-gallery-2.svg",
+      "/images/treks/roopkund-gallery-3.svg"
     ]
   },
   {
@@ -95,11 +120,11 @@ export const treks: Trek[] = [
       { day: 6, title: "Departure", desc: "Drive back to Rishikesh." }
     ],
     price: "₹9,800",
-    coverImage: "https://images.unsplash.com/photo-1490750967868-69c2f016be99?auto=format&fit=crop&q=80&w=1200", // Flowers
+    coverImage: "/images/treks/valley-of-flowers-cover.svg", // Flowers
     gallery: [
-      "https://images.unsplash.com/photo-1507608869274-2c330136e85e?auto=format&fit=crop&q=80&w=800",
-      "https://images.unsplash.com/photo-1465146344425-f00d5f5c8f07?auto=format&fit=crop&q=80&w=800",
-      "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&q=80&w=800"
+      "/images/treks/valley-of-flowers-gallery-1.svg",
+      "/images/treks/valley-of-flowers-gallery-2.svg",
+      "/images/treks/valley-of-flowers-gallery-3.svg"
     ]
   },
   {
@@ -122,11 +147,11 @@ export const treks: Trek[] = [
       { day: 8, title: "Departure", desc: "Drive to Srinagar." }
     ],
     price: "₹15,900",
-    coverImage: "https://images.unsplash.com/photo-1595878715977-2a8f8f01a3b8?auto=format&fit=crop&q=80&w=1200", // Lake
+    coverImage: "/images/treks/kashmir-lakes-cover.svg", // Lake
     gallery: [
-      "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&q=80&w=800",
-      "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&q=80&w=800",
-      "https://images.unsplash.com/photo-1433086966358-54859d0ed716?auto=format&fit=crop&q=80&w=800"
+      "/images/treks/kashmir-lakes-gallery-1.svg",
+      "/images/treks/kashmir-lakes-gallery-2.svg",
+      "/images/treks/kashmir-lakes-gallery-3.svg"
     ]
   },
 
@@ -149,11 +174,11 @@ export const treks: Trek[] = [
       { day: 7, title: "Return", desc: "Trek to Srikhola and drive back." }
     ],
     price: "₹11,500",
-    coverImage: "https://images.unsplash.com/photo-1544198365-f5d60b6d8190?auto=format&fit=crop&q=80&w=1200", // Sunrise
+    coverImage: "/images/treks/sandakphu-cover.svg", // Sunrise
     gallery: [
-      "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&q=80&w=800",
-      "https://images.unsplash.com/photo-1490682143684-14369e18dce8?auto=format&fit=crop&q=80&w=800",
-      "https://images.unsplash.com/photo-1517021897933-0e0319cfbc28?auto=format&fit=crop&q=80&w=800"
+      "/images/treks/sandakphu-gallery-1.svg",
+      "/images/treks/sandakphu-gallery-2.svg",
+      "/images/treks/sandakphu-gallery-3.svg"
     ]
   },
    {
@@ -175,11 +200,11 @@ export const treks: Trek[] = [
       { day: 7, title: "Return", desc: "Trek to Srikhola and drive back." }
     ],
     price: "₹8,499",
-    coverImage: "https://images.unsplash.com/photo-1544198365-f5d60b6d8190?auto=format&fit=crop&q=80&w=1200", // Sunrise
+    coverImage: "/images/treks/kuari-pass-cover.svg", // Sunrise
     gallery: [
-      "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&q=80&w=800",
-      "https://images.unsplash.com/photo-1490682143684-14369e18dce8?auto=format&fit=crop&q=80&w=800",
-      "https://images.unsplash.com/photo-1517021897933-0e0319cfbc28?auto=format&fit=crop&q=80&w=800"
+      "/images/treks/kuari-pass-gallery-1.svg",
+      "/images/treks/kuari-pass-gallery-2.svg",
+      "/images/treks/kuari-pass-gallery-3.svg"
     ]
   }
 ];

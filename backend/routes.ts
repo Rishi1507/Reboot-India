@@ -1,106 +1,119 @@
 import type { Express, Request, Response } from "express";
 import nodemailer from "nodemailer";
+import { prisma } from "./db";
 
-// Node 18+ (Node 20 on Railway) has native fetch
+/**
+ * Register API routes
+ */
+export async function registerRoutes(app: Express) {
 
-export async function registerRoutes(_db: any, app: Express) {
+  /* ------------------------------------------------------------------ */
+  /*                               TREKS                                */
+  /* ------------------------------------------------------------------ */
+
+  // Get all treks with departures
+  app.get("/api/treks", async (_req, res) => {
+    const treks = await prisma.trek.findMany({
+      include: { departures: true },
+    });
+    res.json(treks);
+  });
+
+  // Get single trek by slug
+  app.get("/api/treks/:slug", async (req, res) => {
+    const trek = await prisma.trek.findUnique({
+      where: { slug: req.params.slug },
+      include: { departures: true },
+    });
+
+    if (!trek) return res.status(404).json({ error: "Trek not found" });
+    res.json(trek);
+  });
+
+  /* ------------------------------------------------------------------ */
+  /*                              BOOKINGS                              */
+  /* ------------------------------------------------------------------ */
+
   app.post("/api/bookings", async (req: Request, res: Response) => {
     try {
-      console.log("📥 Booking request received");
-
       const {
+        trekId,
         trekTitle,
         userName,
         userEmail,
         userPhone,
-        numberOfParticipants,
-        totalPrice,
+        numberOfSeats,
+        totalAmount,
       } = req.body;
 
-      // --------------------
-      // VALIDATION
-      // --------------------
-      if (!userName || !userEmail || !userPhone || !trekTitle) {
+      if (
+        !trekId ||
+        !trekTitle ||
+        !userName ||
+        !userEmail ||
+        !userPhone ||
+        !numberOfSeats ||
+        !totalAmount
+      ) {
         return res.status(400).json({ error: "Missing required fields" });
       }
 
-      const bookingPayload = {
+      // CUSTOMER
+      const customer = await prisma.customer.upsert({
+        where: { email: userEmail },
+        update: { fullName: userName, phone: userPhone },
+        create: { fullName: userName, email: userEmail, phone: userPhone },
+      });
+
+      // BOOKING
+      const booking = await prisma.booking.create({
+        data: {
+          bookingCode: `RI-${Date.now()}`,
+          trekTitle,
+          seatsBooked: numberOfSeats,
+          totalAmount,
+          status: "PENDING",
+          customerId: customer.id,
+          trekId,
+        },
+      });
+
+      res.json({
+        success: true,
+        booking,
+      });
+
+      // Email async
+      sendBookingEmail({
         trekTitle,
         userName,
         userEmail,
         userPhone,
-        numberOfParticipants,
-        totalPrice,
-        createdAt: new Date().toISOString(),
-      };
-
-      // ✅ RESPOND IMMEDIATELY (CRITICAL FIX)
-      res.json({
-        success: true,
-        message: "Booking received",
+        numberOfSeats,
+        totalAmount,
       });
-
-      // 🔁 BACKGROUND TASKS (NON-BLOCKING)
-      Promise.allSettled([
-        sendToGoogleSheets(bookingPayload),
-        sendBookingEmail(bookingPayload),
-      ]);
-    } catch (error) {
-      console.error("❌ Booking Error:", error);
+    } catch (err) {
+      console.error("❌ Booking Error:", err);
       res.status(500).json({ error: "Booking failed" });
     }
   });
 }
 
 /* -------------------------------------------------------------------------- */
-/*                              HELPER FUNCTIONS                               */
+/*                              EMAIL FUNCTION                                 */
 /* -------------------------------------------------------------------------- */
 
-async function sendToGoogleSheets(payload: any) {
-  if (!process.env.GOOGLE_SHEETS_WEBHOOK) {
-    console.warn("⚠️ GOOGLE_SHEETS_WEBHOOK not set");
-    return;
-  }
-
-  const controller = new AbortController();
-  setTimeout(() => controller.abort(), 5000); // ⏱ 5s timeout
-
-  try {
-    const response = await fetch(process.env.GOOGLE_SHEETS_WEBHOOK, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    });
-
-    if (!response.ok) {
-      throw new Error(`Sheets responded with ${response.status}`);
-    }
-
-    console.log("✅ Google Sheets updated");
-  } catch (err) {
-    console.error("❌ Google Sheets error:", err);
-  }
-}
-
 async function sendBookingEmail(payload: any) {
-  if (!process.env.BOOKING_EMAIL_USER || !process.env.BOOKING_EMAIL_PASS) {
-    console.warn("⚠️ Email credentials not set");
-    return;
-  }
+  if (!process.env.BOOKING_EMAIL_USER || !process.env.BOOKING_EMAIL_PASS) return;
 
   try {
-    // ✅ RAILWAY-SAFE SMTP CONFIG
     const transporter = nodemailer.createTransport({
       host: "smtp.gmail.com",
       port: 587,
-      secure: false, // IMPORTANT for Railway
+      secure: false,
       auth: {
         user: process.env.BOOKING_EMAIL_USER,
         pass: process.env.BOOKING_EMAIL_PASS,
-      },
-      tls: {
-        rejectUnauthorized: false,
       },
     });
 
@@ -114,12 +127,10 @@ async function sendBookingEmail(payload: any) {
         <p><strong>Name:</strong> ${payload.userName}</p>
         <p><strong>Email:</strong> ${payload.userEmail}</p>
         <p><strong>Phone:</strong> ${payload.userPhone}</p>
-        <p><strong>Participants:</strong> ${payload.numberOfParticipants}</p>
-        <p><strong>Total:</strong> ₹${payload.totalPrice}</p>
+        <p><strong>Seats:</strong> ${payload.numberOfSeats}</p>
+        <p><strong>Total:</strong> ₹${payload.totalAmount}</p>
       `,
     });
-
-    console.log("✅ Email sent");
   } catch (err) {
     console.error("❌ Email error:", err);
   }

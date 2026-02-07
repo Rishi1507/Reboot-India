@@ -18,6 +18,8 @@ export function Navigation() {
     { href: "/", label: "Home" },
     { href: "/treks", label: "Treks" },
     { href: "/blog", label: "Journal" },
+    { href: "/about", label: "About" },
+    { href: "/contact", label: "Contact" },
   ];
 
   return (
@@ -69,9 +71,11 @@ export function Navigation() {
               </span>
             </Link>
           ))}
-          <button className="px-6 py-2.5 bg-maroon text-white text-sm font-medium rounded-full hover:bg-forest transition-all hover:shadow-lg transform hover:-translate-y-0.5 active:translate-y-0">
-            Start Planning
-          </button>
+          <Link href="/treks">
+            <button className="px-6 py-2.5 bg-maroon text-white text-sm font-medium rounded-full hover:bg-forest transition-all hover:shadow-lg transform hover:-translate-y-0.5 active:translate-y-0">
+              Start Planning
+            </button>
+          </Link>
         </div>
 
         {/* Mobile Toggle */}
@@ -104,9 +108,11 @@ export function Navigation() {
               </span>
             </Link>
           ))}
-          <button className="w-full mt-2 px-6 py-3 bg-maroon text-white text-base font-medium rounded-lg hover:bg-forest transition-colors">
-            Start Planning
-          </button>
+          <Link href="/treks">
+            <button className="w-full mt-2 px-6 py-3 bg-maroon text-white text-base font-medium rounded-lg hover:bg-forest transition-colors">
+              Start Planning
+            </button>
+          </Link>
         </div>
       )}
     </nav>
