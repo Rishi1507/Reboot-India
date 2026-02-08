@@ -1,4 +1,6 @@
 .env
-*.env
-secret.txt
+.env.*
 node_modules
+secret.txt
+dist
+build
