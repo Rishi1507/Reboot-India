@@ -3,7 +3,7 @@ import { PrismaClient } from "@prisma/client";
 
 const router = Router();
 //const prisma = new PrismaClient();
-import { prisma } from "../../db";
+import { prisma } from "../db";
 
 
 /**

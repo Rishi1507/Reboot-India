@@ -1,7 +1,7 @@
 import { Router } from "express";
 import Razorpay from "razorpay";
 import crypto from "crypto";
-import { prisma } from "../../db";
+import { prisma } from "../db";
 import { buildBookingEmail, sendEmail } from "../lib/email";
 
 const router = Router();

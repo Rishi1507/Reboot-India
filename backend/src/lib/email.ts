@@ -1,5 +1,5 @@
 import nodemailer from "nodemailer";
-import { prisma } from "../../db";
+import { prisma } from "../db";
 
 type BookingEmailPayload = {
   to: string;
