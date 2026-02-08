@@ -4,15 +4,42 @@ import bcrypt from "bcryptjs";
 import { prisma } from "../db";
 
 const router = Router();
-
 const JWT_SECRET = process.env.ADMIN_JWT_SECRET || "change-me";
 
 /* =========================
-   AUTH
+   HELPERS
 ========================= */
 
 const signToken = (id: string) =>
   jwt.sign({ id }, JWT_SECRET, { expiresIn: "7d" });
+
+const toDate = (value: any) => {
+  if (!value) return null;
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? null : d;
+};
+
+const toNumber = (v: any) => {
+  if (v === undefined || v === null || v === "") return null;
+  const n = Number(v);
+  return isNaN(n) ? null : n;
+};
+
+const parseJSON = (v: any) => {
+  if (!v) return [];
+  if (typeof v === "string") {
+    try {
+      return JSON.parse(v);
+    } catch {
+      return [];
+    }
+  }
+  return v;
+};
+
+/* =========================
+   AUTH
+========================= */
 
 const authMiddleware = async (req: any, res: any, next: any) => {
   const header = req.headers.authorization || "";
@@ -40,7 +67,6 @@ router.post("/login", async (req, res) => {
 
   let admin = await prisma.adminUser.findUnique({ where: { email } });
 
-  // Bootstrap admin
   if (!admin) {
     if (
       email === process.env.ADMIN_BOOTSTRAP_EMAIL &&
@@ -64,7 +90,7 @@ router.post("/login", async (req, res) => {
 router.use(authMiddleware);
 
 /* =========================
-   ADMIN PROFILE
+   PROFILE
 ========================= */
 
 router.get("/me", async (req: any, res) => {
@@ -76,15 +102,14 @@ router.get("/me", async (req: any, res) => {
 });
 
 /* =========================
-   TREKS (FIXED)
+   TREKS (FULL FIX)
 ========================= */
 
 router.get("/treks", async (_, res) => {
   const treks = await prisma.trek.findMany({
-    where: { isActive: true },
     include: {
-      departures: true,   // ✅ REQUIRED for Departures tab
-      bookings: true,     // ✅ REQUIRED for delete safety + summary
+      departures: true,
+      bookings: true,
     },
     orderBy: { createdAt: "desc" },
   });
@@ -92,63 +117,97 @@ router.get("/treks", async (_, res) => {
 });
 
 router.post("/treks", async (req, res) => {
-  const {
-    id,
-    createdAt,
-    departures,
-    bookings,
-    coupon,
-    payment,
-    redemptions,
-    syncDeparturePrices,
-    ...data
-  } = req.body || {};
+  try {
+    let {
+      slug,
+      syncDeparturePrices,
+      gallery,
+      itinerary,
+      originalPrice,
+      discountedPrice,
+      ...data
+    } = req.body;
 
-  const trek = await prisma.trek.create({ data });
-  res.json(trek);
+    slug = String(slug).trim();
+
+    const exists = await prisma.trek.findUnique({ where: { slug } });
+    if (exists)
+      return res.status(400).json({ error: "Slug already exists" });
+
+    const trek = await prisma.trek.create({
+      data: {
+        slug,
+        ...data,
+        gallery: parseJSON(gallery),
+        itinerary: parseJSON(itinerary),
+        originalPrice: toNumber(originalPrice),
+        discountedPrice: toNumber(discountedPrice),
+      },
+    });
+
+    res.json(trek);
+  } catch (err) {
+    console.error("Create trek error:", err);
+    res.status(500).json({ error: "Failed to create trek" });
+  }
 });
 
 router.put("/treks/:id", async (req, res) => {
-  const {
-    id,
-    createdAt,
-    departures,
-    bookings,
-    coupon,
-    payment,
-    redemptions,
-    syncDeparturePrices,
-    ...data
-  } = req.body || {};
+  try {
+    let {
+      slug,
+      syncDeparturePrices,
+      gallery,
+      itinerary,
+      originalPrice,
+      discountedPrice,
+      ...data
+    } = req.body;
 
-  const updated = await prisma.trek.update({
-    where: { id: req.params.id },
-    data,
-  });
-
-  // Sync prices to departures
-  if (
-    syncDeparturePrices &&
-    (data.discountedPrice || data.originalPrice || data.price)
-  ) {
-    let newPrice = data.discountedPrice || data.originalPrice;
-    if (!newPrice && data.price) {
-      const digits = String(data.price).replace(/[^0-9]/g, "");
-      newPrice = digits ? Number(digits) : undefined;
-    }
-
-    if (newPrice) {
-      await prisma.departure.updateMany({
-        where: { trekId: req.params.id },
-        data: { pricePerSeat: Number(newPrice) },
+    if (slug) {
+      const existing = await prisma.trek.findFirst({
+        where: {
+          slug,
+          NOT: { id: req.params.id },
+        },
       });
-    }
-  }
 
-  res.json(updated);
+      if (existing)
+        return res.status(400).json({ error: "Slug already exists" });
+    }
+
+    const trek = await prisma.trek.update({
+      where: { id: req.params.id },
+      data: {
+        slug,
+        ...data,
+        gallery: parseJSON(gallery),
+        itinerary: parseJSON(itinerary),
+        originalPrice: toNumber(originalPrice),
+        discountedPrice: toNumber(discountedPrice),
+      },
+    });
+
+    // Sync departure prices if enabled
+    if (syncDeparturePrices) {
+      const newPrice = toNumber(discountedPrice) || toNumber(originalPrice);
+
+      if (newPrice) {
+        await prisma.departure.updateMany({
+          where: { trekId: req.params.id },
+          data: { pricePerSeat: newPrice },
+        });
+      }
+    }
+
+    res.json(trek);
+  } catch (err) {
+    console.error("Update trek error:", err);
+    res.status(500).json({ error: "Failed to update trek" });
+  }
 });
 
-// ✅ Soft delete trek (frontend already prevents unsafe delete)
+// Soft delete
 router.delete("/treks/:id", async (req, res) => {
   const trek = await prisma.trek.update({
     where: { id: req.params.id },
@@ -162,24 +221,36 @@ router.delete("/treks/:id", async (req, res) => {
 ========================= */
 
 router.post("/treks/:id/departures", async (req, res) => {
-  const departure = await prisma.departure.create({
-    data: { ...req.body, trekId: req.params.id },
-  });
-  res.json(departure);
-});
-
-router.patch("/departures/:id", async (req, res) => {
-  const departure = await prisma.departure.update({
-    where: { id: req.params.id },
-    data: req.body,
-  });
-  res.json(departure);
+  try {
+    const departure = await prisma.departure.create({
+      data: {
+        trekId: req.params.id,
+        startDate: new Date(req.body.startDate),
+        endDate: new Date(req.body.endDate),
+        totalSeats: Number(req.body.totalSeats),
+        pricePerSeat: Number(req.body.pricePerSeat),
+      },
+    });
+    res.json(departure);
+  } catch {
+    res.status(500).json({ error: "Failed to create departure" });
+  }
 });
 
 router.delete("/departures/:id", async (req, res) => {
+  const count = await prisma.booking.count({
+    where: { departureId: req.params.id },
+  });
+
+  if (count > 0)
+    return res
+      .status(400)
+      .json({ error: "Cannot delete departure with bookings" });
+
   const departure = await prisma.departure.delete({
     where: { id: req.params.id },
   });
+
   res.json(departure);
 });
 
@@ -199,14 +270,6 @@ router.get("/bookings", async (_, res) => {
     orderBy: { createdAt: "desc" },
   });
   res.json(bookings);
-});
-
-router.patch("/bookings/:id", async (req, res) => {
-  const booking = await prisma.booking.update({
-    where: { id: req.params.id },
-    data: req.body,
-  });
-  res.json(booking);
 });
 
 /* =========================
@@ -244,31 +307,65 @@ router.get("/coupons", async (_, res) => {
 });
 
 router.post("/coupons", async (req, res) => {
-  const data = req.body;
-  const coupon = await prisma.coupon.create({
-    data: {
-      ...data,
-      code: String(data.code || "").trim().toUpperCase(),
-    },
-  });
-  res.json(coupon);
+  try {
+    const data = req.body;
+    const code = String(data.code).trim().toUpperCase();
+
+    const exists = await prisma.coupon.findUnique({ where: { code } });
+    if (exists)
+      return res.status(400).json({ error: "Coupon already exists" });
+
+    const coupon = await prisma.coupon.create({
+      data: {
+        code,
+        type: data.type,
+        value: toNumber(data.value),
+        isActive: data.isActive ?? true,
+        validFrom: toDate(data.validFrom),
+        validTo: toDate(data.validTo),
+        maxUses: toNumber(data.maxUses),
+        maxUsesPerEmail: toNumber(data.maxUsesPerEmail),
+        minAmount: toNumber(data.minAmount),
+      },
+    });
+
+    res.json(coupon);
+  } catch (err) {
+    console.error("Coupon create error:", err);
+    res.status(500).json({ error: "Failed to create coupon" });
+  }
 });
 
 router.patch("/coupons/:id", async (req, res) => {
   const data = req.body;
+
   const coupon = await prisma.coupon.update({
     where: { id: req.params.id },
     data: {
-      ...data,
       code: data.code
         ? String(data.code).trim().toUpperCase()
         : undefined,
+      type: data.type,
+      value: toNumber(data.value),
+      isActive: data.isActive,
+      validFrom:
+        data.validFrom !== undefined ? toDate(data.validFrom) : undefined,
+      validTo:
+        data.validTo !== undefined ? toDate(data.validTo) : undefined,
+      maxUses:
+        data.maxUses !== undefined ? toNumber(data.maxUses) : undefined,
+      maxUsesPerEmail:
+        data.maxUsesPerEmail !== undefined
+          ? toNumber(data.maxUsesPerEmail)
+          : undefined,
+      minAmount:
+        data.minAmount !== undefined ? toNumber(data.minAmount) : undefined,
     },
   });
+
   res.json(coupon);
 });
 
-// Soft delete coupon
 router.delete("/coupons/:id", async (req, res) => {
   const coupon = await prisma.coupon.update({
     where: { id: req.params.id },

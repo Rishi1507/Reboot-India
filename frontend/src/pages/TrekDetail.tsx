@@ -2,90 +2,139 @@ import { useTrek } from "@/hooks/use-treks";
 import { useRoute } from "wouter";
 import { Navigation } from "@/components/Navigation";
 import { Footer } from "@/components/Footer";
+import { BookingModal } from "@/components/BookingModal";
+import { AvailabilityCalendar } from "@/components/AvailabilityCalendar";
+import { Seo } from "@/components/Seo";
+import { useMemo, useState, useEffect } from "react";
 import {
   Clock,
   BarChart,
   MapPin,
   Mountain,
-  CalendarCheck,
+  ShieldCheck,
+  Users,
 } from "lucide-react";
-import { useMemo, useState } from "react";
-import { BookingModal } from "@/components/BookingModal";
-import { AvailabilityCalendar } from "@/components/AvailabilityCalendar";
-import { Seo } from "@/components/Seo";
-import { testimonials } from "@/data/testimonials";
-import { trekFaqs } from "@/data/trekFaqs";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+
+/* =============================
+   CONSTANT CONTENT
+============================= */
+
+const inclusions = [
+  "Accommodation in tents",
+  "All meals during trek",
+  "Certified trek leader",
+  "First aid & safety equipment",
+  "All permits and forest fees",
+];
+
+const exclusions = [
+  "Travel to base camp",
+  "Personal expenses",
+  "Insurance",
+  "Offloading charges",
+];
+
+const cancellationPolicy = `
+30+ days: 90% refund  
+15–30 days: 50% refund  
+0–15 days: No refund
+`;
 
 export default function TrekDetail() {
   const [, params] = useRoute("/treks/:slug");
   const { data: trek, isLoading } = useTrek(params?.slug || "");
+
   const [bookingOpen, setBookingOpen] = useState(false);
   const [selectedDeparture, setSelectedDeparture] = useState<any>(null);
+  const [showSticky, setShowSticky] = useState(false);
+  const [galleryIndex, setGalleryIndex] = useState(0);
+
+  /* =============================
+     DATA PREP
+  ============================= */
 
   const trekData: any = trek || {};
-  const itinerary = Array.isArray(trekData.itinerary)
-    ? trekData.itinerary
-    : [];
-  const season = trekData.season || "All Seasons";
-  const duration = trekData.duration || "Multi-day";
-  const difficulty = trekData.difficulty || "Moderate";
-  const description =
-    trekData.fullDescription || trekData.description || "";
+  const departures = trekData.departures || [];
+  const gallery =
+    Array.isArray(trekData.gallery) && trekData.gallery.length
+      ? trekData.gallery
+      : [trekData.coverImage];
 
-  const reviewSchema = useMemo(() => {
+  /* =============================
+     BATCH ANALYTICS
+  ============================= */
+
+  const batchStats = useMemo(() => {
+    if (!departures.length) return null;
+
+    const sorted = [...departures].sort(
+      (a: any, b: any) =>
+        (b.bookedSeats || 0) - (a.bookedSeats || 0)
+    );
+
+    return {
+      mostPopular: sorted[0],
+    };
+  }, [departures]);
+
+  /* =============================
+     PRICE SURGE
+  ============================= */
+
+  const surgePrice = useMemo(() => {
+    if (!selectedDeparture) return null;
+
+    const total = selectedDeparture.totalSeats;
+    const booked = selectedDeparture.bookedSeats || 0;
+    const remaining = total - booked;
+
+    let price = selectedDeparture.pricePerSeat;
+
+    if (remaining <= 3) price *= 1.15;
+    else if (remaining <= 5) price *= 1.1;
+
+    return Math.round(price);
+  }, [selectedDeparture]);
+
+  /* =============================
+     STICKY BAR
+  ============================= */
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowSticky(window.scrollY > 700);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  /* =============================
+     SCHEMA
+  ============================= */
+
+  const schema = useMemo(() => {
     if (!trekData?.title) return null;
-    const reviews = testimonials.slice(0, 2).map((t) => ({
-      "@type": "Review",
-      author: t.name,
-      reviewRating: {
-        "@type": "Rating",
-        ratingValue: t.rating,
-      },
-      reviewBody: t.quote,
-    }));
 
     return {
       "@context": "https://schema.org",
       "@type": "TouristTrip",
       name: trekData.title,
-      description,
-      image: trekData.coverImage || undefined,
+      description: trekData.fullDescription || "",
       offers: {
         "@type": "Offer",
-        price: String(trekData.price || ""),
+        price:
+          surgePrice ||
+          trekData.discountedPrice ||
+          trekData.price ||
+          "",
         priceCurrency: "INR",
-        availability: "https://schema.org/InStock",
       },
-      aggregateRating: {
-        "@type": "AggregateRating",
-        ratingValue: "4.8",
-        reviewCount: "128",
-      },
-      review: reviews,
     };
-  }, [description, trekData.coverImage, trekData.price, trekData.title]);
+  }, [trekData, surgePrice]);
 
-  const faqSchema = useMemo(
-    () => ({
-      "@context": "https://schema.org",
-      "@type": "FAQPage",
-      mainEntity: trekFaqs.map((faq) => ({
-        "@type": "Question",
-        name: faq.question,
-        acceptedAnswer: {
-          "@type": "Answer",
-          text: faq.answer,
-        },
-      })),
-    }),
-    []
-  );
+  /* =============================
+     STATES
+  ============================= */
 
   if (isLoading)
     return (
@@ -101,225 +150,237 @@ export default function TrekDetail() {
       </div>
     );
 
+  const remainingSeats = selectedDeparture
+    ? selectedDeparture.totalSeats -
+      (selectedDeparture.bookedSeats || 0)
+    : null;
+
+  /* =============================
+     UI
+  ============================= */
+
   return (
     <div className="min-h-screen bg-offwhite">
       <Seo
-        title={`${trek.title} | Reboot India`}
-        description={description.slice(0, 160)}
-        canonical={`https://rebootindia.co.in/treks/${trek.slug}`}
-        image={trek.coverImage}
-        structuredData={[reviewSchema, faqSchema].filter(Boolean) as object[]}
+        title={`${trekData.title} | Reboot India`}
+        description={trekData.shortDescription}
+        structuredData={[schema].filter(Boolean) as object[]}
       />
+
       <Navigation />
 
       {/* HERO */}
-      <div className="relative h-[65vh] bg-black">
+      <div className="relative h-[60vh]">
         <img
-          src={trek.coverImage || "/images/treks/fallback.svg"}
-          alt={trek.title}
-          className="w-full h-full object-cover opacity-90"
+          src={gallery[galleryIndex]}
+          className="w-full h-full object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-        <div className="absolute bottom-8 left-0 right-0">
-          <div className="container mx-auto px-4">
-            <div className="text-white">
-              <div className="text-sm uppercase tracking-widest text-white/70">
-                Himalayan Treks
-              </div>
-              <h1 className="font-serif text-4xl md:text-5xl font-bold">
-                {trek.title}
-              </h1>
-              <div className="mt-3 flex flex-wrap items-center gap-4 text-white/80">
-                <span className="flex items-center gap-2">
-                  <Clock size={16} /> {duration}
-                </span>
-                <span className="flex items-center gap-2">
-                  <BarChart size={16} /> {difficulty}
-                </span>
-                <span className="flex items-center gap-2">
-                  <MapPin size={16} /> Himalayas
-                </span>
-              </div>
-            </div>
+
+        {/* Gallery Controls */}
+        {gallery.length > 1 && (
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
+            {gallery.map((_: any, i: number) => (
+              <button
+                key={i}
+                onClick={() => setGalleryIndex(i)}
+                className={`w-3 h-3 rounded-full ${
+                  galleryIndex === i ? "bg-white" : "bg-white/40"
+                }`}
+              />
+            ))}
+          </div>
+        )}
+
+        <div className="absolute bottom-8 left-8 text-white">
+          <h1 className="text-4xl font-bold">{trekData.title}</h1>
+          <div className="flex gap-4 mt-2 text-sm">
+            <span className="flex gap-1 items-center">
+              <Clock size={16} /> {trekData.duration}
+            </span>
+            <span className="flex gap-1 items-center">
+              <BarChart size={16} /> {trekData.difficulty}
+            </span>
+            <span className="flex gap-1 items-center">
+              <MapPin size={16} /> Himalayas
+            </span>
           </div>
         </div>
       </div>
 
       {/* CONTENT */}
-      <div className="container mx-auto px-4 py-10">
-        <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-10">
-          {/* MAIN */}
-          <div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-white rounded-2xl border p-4">
-              <div className="flex items-center gap-3">
-                <Mountain className="text-maroon" size={18} />
-                <div>
-                  <div className="text-xs text-gray-500">Season</div>
-                  <div className="text-sm font-semibold">{season}</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <Clock className="text-maroon" size={18} />
-                <div>
-                  <div className="text-xs text-gray-500">Duration</div>
-                  <div className="text-sm font-semibold">{duration}</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <BarChart className="text-maroon" size={18} />
-                <div>
-                  <div className="text-xs text-gray-500">Difficulty</div>
-                  <div className="text-sm font-semibold">{difficulty}</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <CalendarCheck className="text-maroon" size={18} />
-                <div>
-                  <div className="text-xs text-gray-500">Batches</div>
-                  <div className="text-sm font-semibold">
-                    {(trek.departures || []).length}
-                  </div>
-                </div>
-              </div>
-            </div>
+      <div className="container mx-auto px-4 py-10 grid lg:grid-cols-[1.2fr_0.8fr] gap-10">
 
-            <div className="mt-8">
-              <h2 className="font-serif text-2xl font-bold">
-                Trek to the high Himalayas
-              </h2>
-              <p className="mt-4 text-gray-700 leading-relaxed">
-                {description}
-              </p>
-            </div>
+        {/* LEFT */}
+        <div className="space-y-10">
 
-            {itinerary.length > 0 ? (
-              <div className="mt-10">
-                <h3 className="font-serif text-xl font-bold">
-                  Quick Itinerary
-                </h3>
-                <div className="mt-4 space-y-3">
-                  {itinerary.map((day: any) => (
-                    <div
-                      key={`${day.day}-${day.title}`}
-                      className="border rounded-xl p-4 bg-white"
-                    >
-                      <div className="text-sm text-gray-500">
-                        Day {day.day}
-                      </div>
-                      <div className="font-semibold">{day.title}</div>
-                      <div className="text-sm text-gray-600 mt-1">
-                        {day.desc}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : null}
+          {/* BLOG SEO CONTENT */}
+          <section>
+            <h2 className="text-2xl font-bold mb-3">
+              About {trekData.title}
+            </h2>
+            <p className="text-gray-700 leading-relaxed whitespace-pre-line">
+              {trekData.title} is one of the most scenic Himalayan treks.
+              This {trekData.duration} trek is rated {trekData.difficulty}
+              and best visited during {trekData.season}.
 
-            <div className="mt-12">
-              <h3 className="font-serif text-2xl font-bold">
-                Trekker Reviews
-              </h3>
-              <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-                {testimonials.map((t) => (
-                  <div
-                    key={`${t.name}-${t.location}`}
-                    className="rounded-2xl border bg-white p-5 shadow-sm"
-                  >
-                    <div className="text-sm text-gray-500">
-                      {t.location}
-                    </div>
-                    <div className="font-semibold mt-1">{t.name}</div>
-                    <div className="mt-3 text-gray-700 text-sm">
-                      {t.quote}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+              Experience forests, meadows, and breathtaking summit views.
+              Perfect for both beginners and experienced trekkers.
+            </p>
+          </section>
 
-            <div className="mt-12">
-              <h3 className="font-serif text-2xl font-bold">
-                FAQs
-              </h3>
-              <div className="mt-4">
-                <Accordion type="single" collapsible>
-                  {trekFaqs.map((faq, index) => (
-                    <AccordionItem
-                      key={faq.question}
-                      value={`faq-${index}`}
-                    >
-                      <AccordionTrigger>
-                        {faq.question}
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        {faq.answer}
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
-                </Accordion>
-              </div>
-            </div>
-          </div>
+          {/* INCLUSION */}
+          <section>
+            <h2 className="text-xl font-bold mb-2">Inclusions</h2>
+            <ul className="list-disc pl-5 text-gray-700 space-y-1">
+              {inclusions.map((i) => (
+                <li key={i}>{i}</li>
+              ))}
+            </ul>
+          </section>
 
-          {/* SIDEBAR */}
-          <div className="lg:sticky lg:top-24 h-fit space-y-4">
-            <div className="rounded-2xl border bg-white p-5 shadow-sm">
-              <div className="text-sm text-gray-500">Trek Fee</div>
-              <div className="text-3xl font-bold text-charcoal mt-1">
-                {trek.discountedPrice
-                  ? `₹${trek.discountedPrice}`
-                  : trek.price || `₹${selectedDeparture?.pricePerSeat || ""}`}
-              </div>
-              {trek.originalPrice ? (
-                <div className="text-sm text-gray-500 line-through">
-                  ₹{trek.originalPrice}
-                </div>
-              ) : null}
-              <div className="text-xs text-gray-500 mt-1">
-                Per person
-              </div>
+          {/* EXCLUSION */}
+          <section>
+            <h2 className="text-xl font-bold mb-2">Exclusions</h2>
+            <ul className="list-disc pl-5 text-gray-700 space-y-1">
+              {exclusions.map((i) => (
+                <li key={i}>{i}</li>
+              ))}
+            </ul>
+          </section>
 
-              <div className="mt-4">
-                <button
-                  disabled={!selectedDeparture}
-                  onClick={() => setBookingOpen(true)}
-                  className="w-full bg-maroon hover:bg-forest disabled:opacity-40 text-white px-6 py-3 rounded font-bold"
-                >
-                  {selectedDeparture ? "Book Trek" : "Select a Date"}
-                </button>
-              </div>
+          {/* CANCELLATION */}
+          <section>
+            <h2 className="text-xl font-bold mb-2">
+              Cancellation Policy
+            </h2>
+            <p className="text-gray-700 whitespace-pre-line">
+              {cancellationPolicy}
+            </p>
+          </section>
 
-              {selectedDeparture ? (
-                <div className="mt-3 text-sm text-gray-600">
-                  Selected:{" "}
-                  <span className="font-semibold">
-                    {new Date(
-                      selectedDeparture.startDate
-                    ).toDateString()}
-                  </span>
-                </div>
-              ) : null}
-            </div>
-
-            <AvailabilityCalendar
-              departures={trek.departures || []}
-              selectedDepartureId={selectedDeparture?.id}
-              onSelect={(d) => setSelectedDeparture(d)}
-            />
-          </div>
         </div>
 
-        {/* BOOKING MODAL */}
-        <BookingModal
-          open={bookingOpen}
-          onOpenChange={setBookingOpen}
-          trekId={trek.id}
-          trekTitle={trek.title}
-          departureId={selectedDeparture?.id}
-          pricePerSeat={selectedDeparture?.pricePerSeat}
-        />
+        {/* RIGHT SIDEBAR */}
+        <div className="space-y-4">
+
+          {/* PRICE CARD */}
+          <div className="bg-white border rounded-xl p-5 shadow-sm">
+            <div className="text-3xl font-bold">
+              ₹
+              {surgePrice ||
+                trekData.discountedPrice ||
+                trekData.price}
+            </div>
+
+            {remainingSeats !== null && remainingSeats <= 5 && (
+              <div className="text-red-600 text-sm mt-1">
+                Only {remainingSeats} seats left!
+              </div>
+            )}
+
+            {batchStats?.mostPopular && (
+              <div className="text-orange-600 text-sm mt-1">
+                Most popular batch:{" "}
+                {new Date(
+                  batchStats.mostPopular.startDate
+                ).toDateString()}
+              </div>
+            )}
+
+            <button
+              disabled={!selectedDeparture}
+              onClick={() => setBookingOpen(true)}
+              className="mt-4 w-full bg-maroon text-white py-3 rounded font-bold"
+            >
+              Book Now
+            </button>
+
+            {/* TRUST BADGES */}
+            <div className="mt-4 text-sm text-gray-600 space-y-1">
+              <div className="flex items-center gap-2">
+                <ShieldCheck size={16} /> Safe & Certified
+              </div>
+              <div className="flex items-center gap-2">
+                <Users size={16} /> 5,000+ Trekkers
+              </div>
+              <div className="flex items-center gap-2">
+                <Mountain size={16} /> Expert Leaders
+              </div>
+            </div>
+          </div>
+
+          {/* CALENDAR */}
+          <AvailabilityCalendar
+            departures={departures}
+            selectedDepartureId={selectedDeparture?.id}
+            onSelect={(d) => setSelectedDeparture(d)}
+          />
+
+          {/* HEATMAP */}
+          <div className="bg-white border rounded-xl p-4">
+            <div className="font-semibold mb-2">
+              Batch Availability
+            </div>
+            {departures.slice(0, 6).map((d: any) => {
+              const remaining =
+                d.totalSeats - (d.bookedSeats || 0);
+
+              let color = "text-green-600";
+              let label = "Available";
+
+              if (remaining <= 3) {
+                color = "text-red-600";
+                label = "Almost Full";
+              } else if (remaining <= 6) {
+                color = "text-orange-600";
+                label = "Filling Fast";
+              }
+
+              return (
+                <div
+                  key={d.id}
+                  className="flex justify-between text-sm border-b py-1"
+                >
+                  <span>
+                    {new Date(d.startDate).toDateString()}
+                  </span>
+                  <span className={color}>
+                    {remaining} left · {label}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
+
+      {/* FLOATING CTA */}
+      {showSticky && (
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-3 flex justify-between items-center z-50">
+          <div className="font-bold text-lg">
+            ₹
+            {surgePrice ||
+              trekData.discountedPrice ||
+              trekData.price}
+          </div>
+          <button
+            disabled={!selectedDeparture}
+            onClick={() => setBookingOpen(true)}
+            className="bg-maroon text-white px-6 py-2 rounded font-bold"
+          >
+            Book Now
+          </button>
+        </div>
+      )}
+
+      <BookingModal
+        open={bookingOpen}
+        onOpenChange={setBookingOpen}
+        trekId={trekData.id}
+        trekTitle={trekData.title}
+        departureId={selectedDeparture?.id}
+        pricePerSeat={surgePrice}
+      />
 
       <Footer />
     </div>
