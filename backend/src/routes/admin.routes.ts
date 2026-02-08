@@ -44,6 +44,7 @@ const parseJSON = (v: any) => {
 const authMiddleware = async (req: any, res: any, next: any) => {
   const header = req.headers.authorization || "";
   const token = header.startsWith("Bearer ") ? header.slice(7) : "";
+
   if (!token) return res.status(401).json({ error: "Unauthorized" });
 
   try {
@@ -102,15 +103,12 @@ router.get("/me", async (req: any, res) => {
 });
 
 /* =========================
-   TREKS (FULL FIX)
+   TREKS
 ========================= */
 
 router.get("/treks", async (_, res) => {
   const treks = await prisma.trek.findMany({
-    include: {
-      departures: true,
-      bookings: true,
-    },
+    include: { departures: true, bookings: true },
     orderBy: { createdAt: "desc" },
   });
   res.json(treks);
@@ -128,6 +126,9 @@ router.post("/treks", async (req, res) => {
       ...data
     } = req.body;
 
+    if (!slug)
+      return res.status(400).json({ error: "Slug required" });
+
     slug = String(slug).trim();
 
     const exists = await prisma.trek.findUnique({ where: { slug } });
@@ -142,6 +143,7 @@ router.post("/treks", async (req, res) => {
         itinerary: parseJSON(itinerary),
         originalPrice: toNumber(originalPrice),
         discountedPrice: toNumber(discountedPrice),
+        isActive: data.isActive ?? true,
       },
     });
 
@@ -188,9 +190,10 @@ router.put("/treks/:id", async (req, res) => {
       },
     });
 
-    // Sync departure prices if enabled
+    // Sync departure prices
     if (syncDeparturePrices) {
-      const newPrice = toNumber(discountedPrice) || toNumber(originalPrice);
+      const newPrice =
+        toNumber(discountedPrice) || toNumber(originalPrice);
 
       if (newPrice) {
         await prisma.departure.updateMany({
@@ -207,7 +210,6 @@ router.put("/treks/:id", async (req, res) => {
   }
 });
 
-// Soft delete
 router.delete("/treks/:id", async (req, res) => {
   const trek = await prisma.trek.update({
     where: { id: req.params.id },
@@ -296,7 +298,7 @@ router.get("/payments", async (_, res) => {
 });
 
 /* =========================
-   COUPONS
+   COUPONS (FINAL FIX)
 ========================= */
 
 router.get("/coupons", async (_, res) => {
@@ -309,7 +311,13 @@ router.get("/coupons", async (_, res) => {
 router.post("/coupons", async (req, res) => {
   try {
     const data = req.body;
-    const code = String(data.code).trim().toUpperCase();
+    const code = String(data.code || "").trim().toUpperCase();
+
+    if (!code)
+      return res.status(400).json({ error: "Coupon code required" });
+
+    if (!data.value)
+      return res.status(400).json({ error: "Coupon value required" });
 
     const exists = await prisma.coupon.findUnique({ where: { code } });
     if (exists)
@@ -318,8 +326,8 @@ router.post("/coupons", async (req, res) => {
     const coupon = await prisma.coupon.create({
       data: {
         code,
-        type: data.type,
-        value: toNumber(data.value),
+        type: data.type || "PERCENT",
+        value: Number(data.value), // REQUIRED number
         isActive: data.isActive ?? true,
         validFrom: toDate(data.validFrom),
         validTo: toDate(data.validTo),
@@ -337,33 +345,47 @@ router.post("/coupons", async (req, res) => {
 });
 
 router.patch("/coupons/:id", async (req, res) => {
-  const data = req.body;
+  try {
+    const data = req.body;
 
-  const coupon = await prisma.coupon.update({
-    where: { id: req.params.id },
-    data: {
-      code: data.code
-        ? String(data.code).trim().toUpperCase()
-        : undefined,
-      type: data.type,
-      value: toNumber(data.value),
-      isActive: data.isActive,
-      validFrom:
-        data.validFrom !== undefined ? toDate(data.validFrom) : undefined,
-      validTo:
-        data.validTo !== undefined ? toDate(data.validTo) : undefined,
-      maxUses:
-        data.maxUses !== undefined ? toNumber(data.maxUses) : undefined,
-      maxUsesPerEmail:
-        data.maxUsesPerEmail !== undefined
-          ? toNumber(data.maxUsesPerEmail)
+    const coupon = await prisma.coupon.update({
+      where: { id: req.params.id },
+      data: {
+        code: data.code
+          ? String(data.code).trim().toUpperCase()
           : undefined,
-      minAmount:
-        data.minAmount !== undefined ? toNumber(data.minAmount) : undefined,
-    },
-  });
+        type: data.type,
+        value:
+          data.value !== undefined ? Number(data.value) : undefined,
+        isActive: data.isActive,
+        validFrom:
+          data.validFrom !== undefined
+            ? toDate(data.validFrom)
+            : undefined,
+        validTo:
+          data.validTo !== undefined
+            ? toDate(data.validTo)
+            : undefined,
+        maxUses:
+          data.maxUses !== undefined
+            ? toNumber(data.maxUses)
+            : undefined,
+        maxUsesPerEmail:
+          data.maxUsesPerEmail !== undefined
+            ? toNumber(data.maxUsesPerEmail)
+            : undefined,
+        minAmount:
+          data.minAmount !== undefined
+            ? toNumber(data.minAmount)
+            : undefined,
+      },
+    });
 
-  res.json(coupon);
+    res.json(coupon);
+  } catch (err) {
+    console.error("Coupon update error:", err);
+    res.status(500).json({ error: "Failed to update coupon" });
+  }
 });
 
 router.delete("/coupons/:id", async (req, res) => {
