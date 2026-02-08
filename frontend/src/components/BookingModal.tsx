@@ -80,7 +80,7 @@ export function BookingModal({
 
     try {
       setCouponStatus("Applying...");
-      const res = await fetch("http://localhost:5000/api/coupons/validate", {
+      const res = await fetch("https://rebootindia.co.in/api/coupons/validate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -125,7 +125,7 @@ export function BookingModal({
       setSubmitting(true);
       setError(null);
 
-      const res = await fetch("http://localhost:5000/api/bookings", {
+      const res = await fetch("https://rebootindia.co.in/api/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -152,7 +152,7 @@ export function BookingModal({
       }
 
       const orderRes = await fetch(
-        "http://localhost:5000/api/payment/create-order",
+        "https://rebootindia.co.in/api/payment/create-order",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -178,7 +178,7 @@ export function BookingModal({
         description: trekTitle,
         order_id: order.id,
         handler: async function (response: any) {
-          await fetch("http://localhost:5000/api/payment/verify", {
+          await fetch("https://rebootindia.co.in/api/payment/verify", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
