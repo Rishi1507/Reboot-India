@@ -1,11 +1,33 @@
 import { Mountain, Instagram, Twitter, Facebook } from "lucide-react";
 import { Link } from "wouter";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useLocation } from "wouter";
+import { Helmet } from "react-helmet-async";
 import { useToast } from "@/hooks/use-toast";
+
+const API = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
+function getPageKey(pathname: string) {
+  if (pathname.startsWith("/treks/")) return "/treks/:slug";
+  if (pathname.startsWith("/blog/")) return "/blog/:slug";
+  if (pathname.startsWith("/trek/")) return "/trek/:trekSlug/:blogSlug";
+  if (pathname.startsWith("/admin")) return "/admin";
+  return pathname || "/";
+}
 
 export function Footer() {
   const { toast } = useToast();
+  const [location] = useLocation();
   const [email, setEmail] = useState("");
+  const [faqs, setFaqs] = useState<any[]>([]);
+
+  useEffect(() => {
+    const pageKey = getPageKey(location);
+    fetch(`${API}/api/faqs?page=${encodeURIComponent(pageKey)}`)
+      .then((res) => res.json())
+      .then((data) => setFaqs(Array.isArray(data) ? data : []))
+      .catch(() => setFaqs([]));
+  }, [location]);
 
   const handleSubscribe = () => {
     if (!email || !email.includes("@")) {
@@ -22,8 +44,46 @@ export function Footer() {
     setEmail("");
   };
 
+  const faqSchema =
+    faqs.length > 0
+      ? {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: faqs.map((faq) => ({
+            "@type": "Question",
+            name: faq.question,
+            acceptedAnswer: {
+              "@type": "Answer",
+              text: faq.answer,
+            },
+          })),
+        }
+      : null;
+
   return (
     <footer className="bg-charcoal text-offwhite py-16 md:py-24">
+      {faqSchema ? (
+        <Helmet>
+          <script type="application/ld+json">{JSON.stringify(faqSchema)}</script>
+        </Helmet>
+      ) : null}
+
+      {faqs.length > 0 ? (
+        <section className="container mx-auto px-4 md:px-6 mb-14">
+          <div className="rounded-2xl border border-white/20 bg-white/5 p-6 md:p-8">
+            <h2 className="font-serif text-2xl md:text-3xl mb-6">Frequently Asked Questions</h2>
+            <div className="space-y-4">
+              {faqs.map((faq) => (
+                <div key={faq.id} className="rounded-xl border border-white/15 bg-black/10 p-4">
+                  <h3 className="font-semibold text-white">{faq.question}</h3>
+                  <p className="mt-2 text-sm text-gray-200">{faq.answer}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      ) : null}
+
       <div className="container mx-auto px-4 md:px-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
           <div className="space-y-6">

@@ -17,6 +17,7 @@ export function Navigation() {
   const navLinks = [
     { href: "/", label: "Home" },
     { href: "/treks", label: "Treks" },
+    { href: "/customer/booking", label: "My Booking" },
     { href: "/blog", label: "Journal" },
     { href: "/about", label: "About" },
     { href: "/contact", label: "Contact" },

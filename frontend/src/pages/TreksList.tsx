@@ -65,8 +65,16 @@ export default function TreksList() {
       <Navigation />
       
       {/* Header */}
-      <div className="bg-charcoal pt-32 pb-16 md:pt-40 md:pb-24">
-        <div className="container mx-auto px-4 md:px-6 text-center">
+      <div className="relative overflow-hidden pt-32 pb-16 md:pt-40 md:pb-24">
+        <div className="absolute inset-0">
+          <img
+            src="/images/treks/home-hero.png"
+            alt="Mountain landscape"
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-charcoal/75" />
+        </div>
+        <div className="relative z-10 container mx-auto px-4 md:px-6 text-center">
           <h1 className="font-serif text-4xl md:text-6xl font-bold text-white mb-6 animate-in slide-in-from-bottom-5 fade-in duration-700">
             Our Treks
           </h1>

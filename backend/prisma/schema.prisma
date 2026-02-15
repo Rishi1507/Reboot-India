@@ -17,6 +17,12 @@ enum BookingStatus {
   CANCELLED
 }
 
+enum BookingPaymentStatus {
+  PENDING_ADVANCE
+  ADVANCE_PAID
+  FULLY_PAID
+}
+
 enum CouponType {
   AMOUNT
   PERCENT
@@ -28,6 +34,18 @@ enum RedemptionStatus {
   CANCELLED
 }
 
+enum TrekBlogStatus {
+  DRAFT
+  PUBLISHED
+  UNPUBLISHED
+}
+
+enum TrekReviewStatus {
+  DRAFT
+  APPROVED
+  HIDDEN
+}
+
 /* =========================
    MODELS
 ========================= */
@@ -37,6 +55,7 @@ model Trek {
   title       String
   slug        String   @unique
   description String
+  location    String?
   duration         String
   difficulty       String
   season           String
@@ -47,12 +66,17 @@ model Trek {
   discountedPrice  Int?
   coverImage       String
   gallery          Json
+  headerPhotos     Json?
+  morePhotos       Json?
   itinerary        Json
+  contentBlocks    Json?
   isActive         Boolean  @default(true)
   createdAt   DateTime @default(now())
 
   departures  Departure[]
   bookings    Booking[]
+  blogs       TrekBlog[]
+  reviews     TrekReview[]
 }
 
 model Departure {
@@ -81,6 +105,7 @@ model Customer {
 
 model Booking {
   id                String   @id @default(uuid())
+  trekkingId        String   @unique
 
   trekId            String
   departureId       String
@@ -91,6 +116,13 @@ model Booking {
   discountAmount    Int      @default(0)
   finalAmount       Int      @default(0)
   couponId          String?
+  amountPaid        Int      @default(0)
+  amountDue         Int      @default(0)
+  advanceAmount     Int      @default(500)
+  fullPaymentDiscountPercent Int @default(10)
+  paymentStatus     BookingPaymentStatus @default(PENDING_ADVANCE)
+  dueReminderSentAt DateTime?
+  welcomeSentAt     DateTime?
 
   status            BookingStatus @default(PENDING)
 
@@ -105,7 +137,7 @@ model Booking {
   departure  Departure @relation(fields: [departureId], references: [id])
   customer   Customer  @relation(fields: [customerId], references: [id])
   coupon     Coupon?   @relation(fields: [couponId], references: [id])
-  payment    Payment?
+  payments   Payment[]
   redemptions CouponRedemption[]
 
   @@index([trekId])
@@ -148,16 +180,19 @@ model CouponRedemption {
 
 model Payment {
   id         String   @id @default(uuid())
-  bookingId  String   @unique
+  bookingId  String
   provider   String
   amount     Int
   status     String
+  stage      String   @default("ADVANCE")
   orderId    String?
   paymentId  String?
   signature  String?
   createdAt  DateTime @default(now())
 
   booking Booking @relation(fields: [bookingId], references: [id])
+
+  @@index([bookingId])
 }
 
 model AdminUser {
@@ -176,4 +211,80 @@ model EmailLog {
   error     String?
   bookingId String?
   createdAt DateTime @default(now())
+}
+
+model PageFaq {
+  id        String   @id @default(uuid())
+  pageKey   String
+  question  String
+  answer    String
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([pageKey, isActive, sortOrder])
+}
+
+model TrekBlog {
+  id                     String         @id @default(uuid())
+  trekId                 String
+  title                  String
+  slug                   String
+  author                 String
+  status                 TrekBlogStatus @default(DRAFT)
+  shortIntro             String
+  content                String
+  personalExperience     String?
+  highlights             Json?
+  lessonsLearned         String?
+  itinerary              Json?
+  videoUrl               String?
+  featuredImage          String?
+  gallery                Json?
+  imageAltText           String?
+  bestTimeToVisit        String?
+  temperatureRange       String?
+  fitnessLevelRequired   String?
+  gearList               Json?
+  permitsRequired        Boolean        @default(false)
+  permitsDescription     String?
+  estimatedCost          String?
+  metaTitle              String?
+  metaDescription        String?
+  keywords               Json?
+  openGraphImage         String?
+  publishAt              DateTime?
+  featured               Boolean        @default(false)
+  showOnHomepage         Boolean        @default(false)
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+
+  trek Trek @relation(fields: [trekId], references: [id])
+
+  @@unique([slug])
+  @@index([trekId])
+}
+
+model TrekReview {
+  id               String           @id @default(uuid())
+  trekId           String
+  reviewerName     String
+  reviewerPhotoUrl String?
+  rating           Int
+  reviewTitle      String?
+  reviewText       String
+  trekDate         DateTime?
+  location         String?
+  recommend        Boolean          @default(true)
+  featured         Boolean          @default(false)
+  status           TrekReviewStatus @default(DRAFT)
+  displayOrder     Int?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  trek Trek @relation(fields: [trekId], references: [id])
+
+  @@index([trekId])
+  @@index([status])
 }

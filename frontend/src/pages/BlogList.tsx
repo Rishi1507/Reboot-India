@@ -4,6 +4,7 @@ import { useBlogs } from "@/hooks/use-blogs";
 import { useNews } from "@/hooks/use-news";
 import { Link } from "wouter";
 import { Seo } from "@/components/Seo";
+import { PageHero } from "@/components/PageHero";
 
 export default function BlogList() {
   const { data: blogs, isLoading } = useBlogs();
@@ -28,20 +29,12 @@ export default function BlogList() {
       />
       <Navigation />
 
-      {/* HERO */}
-      <div className="bg-forest pt-32 pb-16 md:pt-40 md:pb-24 text-white">
-        <div className="container mx-auto px-4 md:px-6 text-center">
-          <span className="inline-block py-1 px-3 rounded bg-white/10 backdrop-blur text-white/80 text-xs font-bold uppercase tracking-wider mb-4 border border-white/10">
-            The Journal
-          </span>
-          <h1 className="font-serif text-4xl md:text-6xl font-bold mb-6">
-            Stories from the Mountains
-          </h1>
-          <p className="text-white/70 max-w-2xl mx-auto text-lg">
-            Guides, tips, and tales to inspire your next adventure.
-          </p>
-        </div>
-      </div>
+      <PageHero
+        title="Stories from the Mountains"
+        subtitle="Guides, tips, and tales to inspire your next adventure."
+        eyebrow="The Journal"
+        image="/images/treks/blog-hero.svg"
+      />
 
       {/* JOURNAL LIST */}
       <div className="container mx-auto px-4 md:px-6 py-16">

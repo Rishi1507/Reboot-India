@@ -153,11 +153,11 @@ const treks = [
     price: "₹14,500",
     originalPrice: 15500,
     discountedPrice: 14500,
-    coverImage: "/images/treks/roopkund-cover.svg",
+    coverImage: "/images/treks/roopkund-cover.png",
     gallery: [
-      "/images/treks/roopkund-gallery-1.svg",
-      "/images/treks/roopkund-gallery-2.svg",
-      "/images/treks/roopkund-gallery-3.svg"
+      "/images/treks/roopkund-gallery-1.png",
+      "/images/treks/roopkund-gallery-2.png",
+      "/images/treks/roopkund-gallery-3.png"
     ],
   },
   {

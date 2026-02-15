@@ -1,6 +1,7 @@
 import { Navigation } from "@/components/Navigation";
 import { Footer } from "@/components/Footer";
 import { Seo } from "@/components/Seo";
+import { PageHero } from "@/components/PageHero";
 
 export default function PrivacyPolicy() {
   return (
@@ -11,11 +12,13 @@ export default function PrivacyPolicy() {
         canonical="https://rebootindia.co.in/privacy-policy"
       />
       <Navigation />
+      <PageHero
+        title="Privacy Policy"
+        subtitle="How Reboot India collects, uses, and protects your data."
+        eyebrow="Legal"
+      />
 
-      <div className="container mx-auto px-4 md:px-6 pt-32 pb-16 max-w-4xl">
-        <h1 className="font-serif text-4xl md:text-5xl font-bold text-charcoal">
-          Privacy Policy
-        </h1>
+      <div className="container mx-auto px-4 md:px-6 py-16 max-w-4xl">
         <p className="text-gray-600 mt-4">
           We respect your privacy and are committed to protecting your personal
           data.

@@ -10,6 +10,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
+const API = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const ADVANCE_PER_SEAT = 500;
+
 type BookingModalProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -28,7 +31,6 @@ export function BookingModal({
   pricePerSeat,
 }: BookingModalProps) {
   const [, setLocation] = useLocation();
-
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -36,10 +38,8 @@ export function BookingModal({
   const [couponCode, setCouponCode] = useState("");
   const [discount, setDiscount] = useState(0);
   const [finalAmount, setFinalAmount] = useState<number | null>(null);
-
   const [acceptCancellation, setAcceptCancellation] = useState(false);
   const [acceptTerms, setAcceptTerms] = useState(false);
-
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [couponStatus, setCouponStatus] = useState<string | null>(null);
@@ -60,27 +60,19 @@ export function BookingModal({
     }
   }, [open]);
 
-  const seatPrice = useMemo(
-    () => Number(pricePerSeat ?? 0),
-    [pricePerSeat]
-  );
-
-  const total = useMemo(
-    () => Math.max(0, seats) * seatPrice,
-    [seats, seatPrice]
-  );
-
-  const payable = finalAmount !== null ? finalAmount : total;
+  const seatPrice = useMemo(() => Number(pricePerSeat ?? 0), [pricePerSeat]);
+  const total = useMemo(() => Math.max(0, seats) * seatPrice, [seats, seatPrice]);
+  const totalAfterCoupon = finalAmount ?? total;
+  const advancePayable = Math.min(ADVANCE_PER_SEAT * Math.max(0, seats), totalAfterCoupon);
 
   async function applyCoupon() {
     if (!departureId || !couponCode) {
       setCouponStatus("Enter a coupon code");
       return;
     }
-
     try {
       setCouponStatus("Applying...");
-      const res = await fetch("https://rebootindia.co.in/api/coupons/validate", {
+      const res = await fetch(`${API}/api/coupons/validate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -91,9 +83,7 @@ export function BookingModal({
       });
 
       const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.error || "Invalid coupon");
-      }
+      if (!res.ok) throw new Error(data?.error || "Invalid coupon");
 
       setDiscount(data.discountAmount || 0);
       setFinalAmount(data.finalAmount);
@@ -106,26 +96,17 @@ export function BookingModal({
   }
 
   async function handleSubmit() {
-    if (!departureId) {
-      setError("Please select a batch before booking.");
-      return;
-    }
-
-    if (!name || !email || !seats) {
-      setError("Please fill in required fields.");
-      return;
-    }
-
+    if (!departureId) return setError("Please select a batch before booking.");
+    if (!name || !email || !phone || !seats) return setError("Please fill in required fields.");
     if (!acceptCancellation || !acceptTerms) {
-      setError("Please accept Cancellation Policy and Terms & Conditions.");
-      return;
+      return setError("Please accept Cancellation Policy and Terms & Conditions.");
     }
 
     try {
       setSubmitting(true);
       setError(null);
 
-      const res = await fetch("https://rebootindia.co.in/api/bookings", {
+      const bookingRes = await fetch(`${API}/api/bookings`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -138,47 +119,29 @@ export function BookingModal({
           couponCode: couponCode || undefined,
         }),
       });
+      const bookingData = await bookingRes.json();
+      if (!bookingRes.ok) throw new Error(bookingData?.error || "Booking failed");
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.error || "Booking failed");
-      }
+      const bookingId = bookingData.id || bookingData.bookingId;
+      if (!bookingId) throw new Error("Booking ID missing from response");
 
-      // ✅ FIXED: correct booking ID extraction
-      const bookingId = data.id || data.bookingId;
-      if (!bookingId) {
-        console.error("Unexpected booking response:", data);
-        throw new Error("Booking created but no ID returned");
-      }
-
-      const orderRes = await fetch(
-        "https://rebootindia.co.in/api/payment/create-order",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ bookingId }),
-        }
-      );
-
+      const orderRes = await fetch(`${API}/api/payment/create-order`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId, stage: "ADVANCE" }),
+      });
       const orderData = await orderRes.json();
-      if (!orderRes.ok) {
-        throw new Error(orderData?.error || "Failed to create order");
-      }
-
-      const { order } = orderData;
-      if (!order?.id) {
-        throw new Error("Order not returned");
-      }
+      if (!orderRes.ok) throw new Error(orderData?.error || "Failed to create advance order");
 
       const options = {
         key: import.meta.env.VITE_RAZORPAY_KEY_ID,
-        amount: order.amount,
+        amount: orderData.order.amount,
         currency: "INR",
         name: "Reboot India",
-        description: trekTitle,
-        order_id: order.id,
+        description: `${trekTitle} - Advance Payment`,
+        order_id: orderData.order.id,
         handler: async function (response: any) {
-          await fetch("https://rebootindia.co.in/api/payment/verify", {
+          const verifyRes = await fetch(`${API}/api/payment/verify`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -187,14 +150,15 @@ export function BookingModal({
             }),
           });
 
+          if (!verifyRes.ok) {
+            const data = await verifyRes.json().catch(() => ({}));
+            throw new Error(data?.error || "Payment verification failed");
+          }
+
           onOpenChange(false);
           setLocation(`/booking-success?bookingId=${bookingId}`);
         },
-        prefill: {
-          name,
-          email,
-          contact: phone,
-        },
+        prefill: { name, email, contact: phone },
         theme: { color: "#7b1e1e" },
       };
 
@@ -209,52 +173,28 @@ export function BookingModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[520px]">
         <DialogHeader>
           <DialogTitle>Book {trekTitle}</DialogTitle>
           <DialogDescription>
-            Fill in your details to reserve your seats.
+            Confirm your batch and pay advance now. Remaining amount is payable at trek.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3">
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full border rounded px-3 py-2"
-            placeholder="Full name"
-          />
+          <input value={name} onChange={(e) => setName(e.target.value)} className="w-full border rounded px-3 py-2" placeholder="Full name" />
+          <input value={email} onChange={(e) => setEmail(e.target.value)} className="w-full border rounded px-3 py-2" placeholder="Email" type="email" />
+          <input value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full border rounded px-3 py-2" placeholder="Phone number" />
+          <input value={seats} onChange={(e) => setSeats(Number(e.target.value))} className="w-full border rounded px-3 py-2" min={1} type="number" />
 
-          <input
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full border rounded px-3 py-2"
-            placeholder="Email"
-            type="email"
-          />
-
-          <input
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            className="w-full border rounded px-3 py-2"
-            placeholder="Phone number"
-          />
-
-          <input
-            value={seats}
-            onChange={(e) => setSeats(Number(e.target.value))}
-            className="w-full border rounded px-3 py-2"
-            min={1}
-            type="number"
-          />
+          <div className="rounded border bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            Pay at Trek Policy: Pay ₹{ADVANCE_PER_SEAT} per seat now and reserve your seats.
+          </div>
 
           <div className="text-sm">Total: ₹{total}</div>
-          {discount > 0 && (
-            <div className="text-sm text-green-600">
-              Discount: -₹{discount}
-            </div>
-          )}
-          <div className="text-sm font-semibold">Payable: ₹{payable}</div>
+          {discount > 0 && <div className="text-sm text-green-600">Discount: -₹{discount}</div>}
+          <div className="text-sm font-semibold">Advance Payable Now: ₹{advancePayable}</div>
+          <div className="text-xs text-gray-600">Remaining payable at trek/check-in: ₹{Math.max(0, totalAfterCoupon - advancePayable)}</div>
 
           <div className="flex gap-2">
             <input
@@ -268,53 +208,24 @@ export function BookingModal({
             </button>
           </div>
 
-          {couponStatus && (
-            <div className="text-xs text-gray-500">{couponStatus}</div>
-          )}
+          {couponStatus && <div className="text-xs text-gray-500">{couponStatus}</div>}
 
-          {/* ✅ Cancellation Policy */}
           <label className="flex items-start gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={acceptCancellation}
-              onChange={(e) => setAcceptCancellation(e.target.checked)}
-            />
+            <input type="checkbox" checked={acceptCancellation} onChange={(e) => setAcceptCancellation(e.target.checked)} />
             <span>
               I accept the{" "}
-              <a
-                href="/cancellation-policy"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-600 underline"
-              >
-                Cancellation Policy
+              <a href="/refund-policy" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">
+                Cancellation/Refund Policy
               </a>
             </span>
           </label>
 
-          {/* ✅ Terms & Conditions */}
           <label className="flex items-start gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={acceptTerms}
-              onChange={(e) => setAcceptTerms(e.target.checked)}
-            />
-            <span>
-              I accept the{" "}
-              <a
-                href="/terms-and-conditions"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-600 underline"
-              >
-                Terms & Conditions
-              </a>
-            </span>
+            <input type="checkbox" checked={acceptTerms} onChange={(e) => setAcceptTerms(e.target.checked)} />
+            <span>I accept the terms and conditions.</span>
           </label>
 
-          {error && (
-            <div className="text-sm text-red-600">{error}</div>
-          )}
+          {error && <div className="text-sm text-red-600">{error}</div>}
         </div>
 
         <DialogFooter>
@@ -324,7 +235,7 @@ export function BookingModal({
             disabled={!acceptCancellation || !acceptTerms}
             className="bg-maroon hover:bg-forest text-white px-4 py-2 rounded"
           >
-            Pay & Book
+            Pay ₹{advancePayable} & Book
           </LoadingButton>
         </DialogFooter>
       </DialogContent>

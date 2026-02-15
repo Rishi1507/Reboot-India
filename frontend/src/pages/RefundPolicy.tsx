@@ -1,6 +1,7 @@
 import { Navigation } from "@/components/Navigation";
 import { Footer } from "@/components/Footer";
 import { Seo } from "@/components/Seo";
+import { PageHero } from "@/components/PageHero";
 
 export default function RefundPolicy() {
   return (
@@ -11,11 +12,13 @@ export default function RefundPolicy() {
         canonical="https://rebootindia.co.in/refund-policy"
       />
       <Navigation />
+      <PageHero
+        title="Refund Policy"
+        subtitle="Clear and fair cancellation terms for every trek booking."
+        eyebrow="Legal"
+      />
 
-      <div className="container mx-auto px-4 md:px-6 pt-32 pb-16 max-w-4xl">
-        <h1 className="font-serif text-4xl md:text-5xl font-bold text-charcoal">
-          Refund Policy
-        </h1>
+      <div className="container mx-auto px-4 md:px-6 py-16 max-w-4xl">
         <p className="text-gray-600 mt-4">
           Our refund policy is designed to be fair and transparent. Please read
           carefully before booking.

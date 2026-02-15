@@ -1,8 +1,6 @@
 import { Router } from "express";
-import { PrismaClient } from "@prisma/client";
 
 const router = Router();
-//const prisma = new PrismaClient();
 import { prisma } from "../db";
 
 
@@ -29,19 +27,12 @@ router.get("/", async (_req, res) => {
  */
 router.get("/:slug", async (req, res) => {
   try {
-    // 🔍 DEBUG BLOCK (remove later)
-    console.log("Looking for slug:", req.params.slug);
-    const count = await prisma.trek.count();
-    console.log("TREK COUNT IN API DB:", count);
-    // 🔍 END DEBUG BLOCK
-
     const trek = await prisma.trek.findFirst({
       where: { slug: req.params.slug, isActive: true },
       include: { departures: true },
     });
 
     if (!trek) {
-      console.warn("❌ Trek not found for slug:", req.params.slug);
       return res.status(404).json({ error: "Trek not found" });
     }
 
@@ -49,6 +40,91 @@ router.get("/:slug", async (req, res) => {
   } catch (err) {
     console.error("TREK DETAIL ERROR:", err);
     res.status(500).json({ error: "Failed to load trek" });
+  }
+});
+
+router.get("/:slug/blogs", async (req, res) => {
+  try {
+    const trek = await prisma.trek.findFirst({
+      where: { slug: req.params.slug, isActive: true },
+      select: { id: true },
+    });
+    if (!trek) return res.status(404).json({ error: "Trek not found" });
+
+    const blogs = await prisma.trekBlog.findMany({
+      where: { trekId: trek.id, status: "PUBLISHED" },
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        shortIntro: true,
+        featuredImage: true,
+        publishAt: true,
+        createdAt: true,
+      },
+      orderBy: [{ publishAt: "desc" }, { createdAt: "desc" }],
+    });
+
+    res.json({ blogs });
+  } catch (err) {
+    console.error("TREK BLOGS ERROR:", err);
+    res.status(500).json({ error: "Failed to load trek blogs" });
+  }
+});
+
+router.get("/:slug/reviews", async (req, res) => {
+  try {
+    const trek = await prisma.trek.findFirst({
+      where: { slug: req.params.slug, isActive: true },
+      select: { id: true },
+    });
+    if (!trek) return res.status(404).json({ error: "Trek not found" });
+
+    const reviews = await prisma.trekReview.findMany({
+      where: { trekId: trek.id, status: "APPROVED" },
+      orderBy: [{ featured: "desc" }, { displayOrder: "asc" }, { createdAt: "desc" }],
+    });
+
+    const totalReviews = reviews.length;
+    const avgRating =
+      totalReviews > 0
+        ? Number(
+            (reviews.reduce((acc, cur) => acc + (cur.rating || 0), 0) / totalReviews).toFixed(1),
+          )
+        : 0;
+
+    res.json({
+      totalReviews,
+      avgRating,
+      reviews,
+    });
+  } catch (err) {
+    console.error("TREK REVIEWS ERROR:", err);
+    res.status(500).json({ error: "Failed to load trek reviews" });
+  }
+});
+
+router.get("/:trekSlug/blogs/:blogSlug", async (req, res) => {
+  try {
+    const trek = await prisma.trek.findFirst({
+      where: { slug: req.params.trekSlug, isActive: true },
+      select: { id: true, title: true, slug: true, difficulty: true, location: true },
+    });
+    if (!trek) return res.status(404).json({ error: "Trek not found" });
+
+    const blog = await prisma.trekBlog.findFirst({
+      where: {
+        trekId: trek.id,
+        slug: req.params.blogSlug,
+        status: "PUBLISHED",
+      },
+    });
+    if (!blog) return res.status(404).json({ error: "Blog not found" });
+
+    res.json({ trek, blog });
+  } catch (err) {
+    console.error("TREK BLOG DETAIL ERROR:", err);
+    res.status(500).json({ error: "Failed to load trek blog" });
   }
 });
 

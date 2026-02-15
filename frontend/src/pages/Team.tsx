@@ -1,25 +1,26 @@
 import { Navigation } from "@/components/Navigation";
 import { Footer } from "@/components/Footer";
 import { Helmet } from "react-helmet-async";
+import { PageHero } from "@/components/PageHero";
 
 const teamMembers = [
   {
-    name: "Rohan Sharma",
+    name: "Neeraj Kohli",
     role: "Founder & Lead Guide",
-    img: "/images/treks/team-1.svg",
+    img: "/images/treks/team-1.png",
     bio: "Mountain leader who’s walked every major trail in the Indian Himalayas.",
   },
   {
-    name: "Priya Singh",
+    name: "Pratibha Nayak",
     role: "Operations Head",
-    img: "/images/treks/team-2.svg",
+    img: "/images/treks/team-2.png",
     bio: "Keeps the logistics tight and the experiences smooth.",
   },
   {
-    name: "Ankit Mehta",
-    role: "Community Liaison",
-    img: "/images/treks/team-3.svg",
-    bio: "Bridges teams with local partners and storytellers.",
+    name: "Rishi Raj",
+    role: "Marketing & Tech Head",
+    img: "/images/treks/team-3.png",
+    bio: "Bridges tech with local partners and storytellers.",
   },
 ];
 
@@ -46,17 +47,11 @@ export default function Team() {
 
       <Navigation />
 
-      {/* Hero */}
-      <section className="bg-maroon text-white pt-32 pb-20">
-        <div className="container mx-auto px-6 text-center">
-          <h1 className="font-serif text-5xl md:text-6xl font-bold mb-4">
-            Meet Our Team
-          </h1>
-          <p className="text-lg md:text-xl max-w-3xl mx-auto leading-relaxed">
-            Dedicated leaders, planners, and trailblazers.
-          </p>
-        </div>
-      </section>
+      <PageHero
+        title="Meet Our Team"
+        subtitle="Dedicated leaders, planners, and trailblazers."
+        eyebrow="Reboot India"
+      />
 
       {/* Team Grid */}
       <section className="container mx-auto px-6 py-20">

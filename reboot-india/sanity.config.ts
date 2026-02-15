@@ -2,6 +2,7 @@ import {defineConfig} from 'sanity'
 import {structureTool} from 'sanity/structure'
 import {visionTool} from '@sanity/vision'
 import {schemaTypes} from './schemaTypes'
+import trekSeo from './schemas/trekSeo'
 
 export default defineConfig({
   name: 'default',
@@ -14,5 +15,6 @@ export default defineConfig({
 
   schema: {
     types: schemaTypes,
+    types: [trekSeo],
   },
 })

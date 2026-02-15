@@ -1,274 +1,230 @@
-import { Navigation } from "@/components/Navigation";
+import { Link } from "wouter";
 import { Footer } from "@/components/Footer";
-import { Helmet } from "react-helmet-async";
+import { Navigation } from "@/components/Navigation";
+import { PageHero } from "@/components/PageHero";
+import { Seo } from "@/components/Seo";
+import { BadgeCheck, Mountain, ShieldCheck, Users, HeartHandshake, Compass } from "lucide-react";
+
+const differentiators = [
+  "We focus on experience, not volume",
+  "Small group sizes for better safety and personal attention",
+  "Carefully curated treks including unexplored routes",
+  "Safety-first approach on every expedition",
+  "Authentic Himalayan experience instead of commercial crowd-based trekking",
+  "Strong focus on local culture and environment",
+];
+
+const chooseUs = [
+  "Small and manageable group sizes",
+  "Certified and experienced trek leaders",
+  "Well-planned itineraries for safety and comfort",
+  "Curated treks designed for real mountain experiences",
+  "Local village partnerships and support",
+  "Personalized attention and support before and during the trek",
+];
+
+const trustCards = [
+  { icon: Users, title: "Small Groups", text: "Personal attention, stronger safety, better trek quality." },
+  { icon: ShieldCheck, title: "Safety First", text: "High-altitude protocols, first aid readiness, risk checks." },
+  { icon: HeartHandshake, title: "Local Support", text: "Village partnerships that create real local impact." },
+  { icon: BadgeCheck, title: "Experienced Leaders", text: "Mountain professionals with years of trail exposure." },
+];
 
 export default function About() {
   return (
-    <div className="min-h-screen bg-offwhite text-charcoal">
-      <Helmet>
-        <link rel="canonical" href="https://rebootindia.co.in/about" />
-        <link rel="canonical" href="https://rebootindia.co.in/about" />
-        <script type="application/ld+json">
-          {JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "Organization",
-            name: "Reboot India",
-            url: "https://rebootindia.co.in/",
-            logo: "https://rebootindia.co.in/og/logo.png",
-          })}
-        </script>
-        <title>About Reboot India | Beyond Trails. An Experience You Feel.</title>
-        <meta
-          name="description"
-          content="Reboot India designs and leads Himalayan trekking experiences across Uttarakhand and Himachal Pradesh — beyond trails, into connection, culture, and meaning."
-        />
-      </Helmet>
-
+    <div className="min-h-screen bg-charcoal text-white scroll-smooth">
+      <Seo
+        title="About Reboot India | Meaningful Himalayan Trekking"
+        description="Learn how Reboot India started, what we stand for, and why trekkers trust us for safe and meaningful Himalayan experiences."
+        canonical="https://rebootindia.co.in/about"
+      />
       <Navigation />
 
-      {/* HERO */}
-      <section className="relative pt-32 pb-28 bg-forest text-white overflow-hidden">
-        <div className="absolute inset-0">
-          <img
-            src="/images/about/hero-himalayas.jpg"
-            alt="Himalayan trekking with Reboot India"
-            className="w-full h-full object-cover opacity-30"
-          />
-        </div>
+      <PageHero
+        title="About Reboot India"
+        subtitle="Reboot India is built for those who want to disconnect from noise and reconnect with nature through meaningful trekking experiences."
+        eyebrow="Our Story"
+        image="/images/treks/home-hero.png"
+      />
 
-        <div className="relative z-10 container mx-auto px-6 max-w-4xl text-center">
-          <span className="uppercase tracking-widest text-sm text-white/70">
-            About Reboot India
-          </span>
-          <h1 className="font-serif text-5xl md:text-6xl font-bold mt-4 mb-6">
-            Beyond Trails. <br /> An Experience You Feel.
-          </h1>
-          <p className="text-lg md:text-xl text-white/85 leading-relaxed">
-            Trekking is not just about reaching a summit — it’s about reconnecting.
-            <br />
-            With the mountains. With people. And with yourself.
+      <section className="py-4 border-b border-white/10 bg-black/30">
+        <div className="container mx-auto px-4 md:px-6 flex flex-wrap gap-2">
+          {[
+            ["Story", "#story"],
+            ["Mission", "#mission"],
+            ["Difference", "#difference"],
+            ["Why Us", "#why-us"],
+            ["Safety", "#safety"],
+            ["Impact", "#impact"],
+            ["Vision", "#vision"],
+          ].map(([label, href]) => (
+            <a
+              key={label}
+              href={href}
+              className="px-3 py-1.5 rounded-full border border-white/20 bg-white/5 text-sm text-white/85 hover:bg-white/10 transition-colors"
+            >
+              {label}
+            </a>
+          ))}
+        </div>
+      </section>
+
+      <section id="story" className="py-16 md:py-24">
+        <div className="container mx-auto px-4 md:px-6 max-w-5xl">
+          <h2 className="font-serif text-3xl md:text-5xl mb-6">How It Started</h2>
+          <p className="text-white/85 text-lg leading-relaxed mb-5">
+            Reboot India began with a vision from our co-founder Neeraj, an experienced mountain
+            guide with over 7 years of leading treks across the Himalayas. His dream was to create
+            a platform where trekkers could go beyond commercial routes and experience the raw,
+            untouched beauty of the mountains.
+          </p>
+          <p className="text-white/80 text-lg leading-relaxed mb-5">
+            This vision came together with the operational and technology expertise of Pratibha and
+            Rishi, who believed in building a platform that makes discovering and choosing authentic
+            trekking experiences simple, safe, and meaningful.
+          </p>
+          <p className="text-white/80 text-lg leading-relaxed">
+            Together, they built Reboot India to combine mountain expertise with smart planning and
+            seamless experience.
           </p>
         </div>
       </section>
 
-      {/* INTRO */}
-      <section className="py-24 container mx-auto px-6 max-w-4xl">
-        <p className="text-xl leading-relaxed text-gray-700 mb-6">
-          We design and lead Himalayan trekking experiences across
-          <strong> Uttarakhand</strong> and <strong>Himachal Pradesh</strong>,
-          focusing on depth over distance.
-        </p>
-        <p className="text-xl leading-relaxed text-gray-700">
-          From well-known trails to remote, lesser-explored routes — name a
-          Himalayan trek, and we can make it happen. Every journey is thoughtfully
-          crafted to balance adventure, safety, and cultural immersion, ensuring
-          the experience feels meaningful rather than rushed.
-        </p>
-      </section>
-
-      {/* WHAT MAKES US DIFFERENT */}
-      <section className="bg-white py-24">
-        <div className="container mx-auto px-6 max-w-6xl">
-          <h2 className="font-serif text-4xl md:text-5xl font-bold text-center mb-20">
-            What Makes Us Different
-          </h2>
-
-          <div className="grid md:grid-cols-2 gap-16">
-            {/* Beyond Trails */}
-            <div>
-              <h3 className="font-serif text-2xl font-bold mb-4">
-                🌿 Beyond Trails
-              </h3>
-              <p className="text-lg text-gray-700 leading-relaxed mb-6">
-                For us, the Himalayas are not just to be seen — they are meant to
-                be felt.
-              </p>
-
-              <ul className="space-y-4 text-lg text-gray-700">
-                <li>
-                  ✔ Cozy homestays, scenic camps, and authentic village stays
-                  that offer comfort along with a true Himalayan camp experience
-                </li>
-                <li>
-                  ✔ Fully equipped gear support for snow-covered and
-                  high-altitude trails
-                </li>
-                <li>
-                  ✔ Gear rental options if you don’t have specialized equipment
-                </li>
-                <li>
-                  ✔ Certified and experienced trek leaders registered with the
-                  Forest Department
-                </li>
-              </ul>
-
-              <p className="text-lg text-gray-700 leading-relaxed mt-6">
-                This is how we create experiences that feel immersive, supported,
-                and deeply connected to the mountains.
-              </p>
+      <section className="py-16 border-y border-white/10 bg-black/20">
+        <div className="container mx-auto px-4 md:px-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="rounded-2xl border border-white/15 bg-white/5 p-6 text-center">
+              <div className="text-4xl font-serif">7+</div>
+              <div className="text-white/75 mt-1">Years of Mountain Experience</div>
             </div>
-
-            {/* Image Block */}
-            <div className="grid grid-cols-2 gap-4">
-              <img
-                src="/images/about/village.jpg"
-                alt="Himalayan village stay"
-                className="rounded-2xl object-cover h-56"
-              />
-              <img
-                src="/images/about/camp.jpg"
-                alt="High altitude campsite"
-                className="rounded-2xl object-cover h-56"
-              />
-              <img
-                src="/images/about/snow.jpg"
-                alt="Snow trekking experience"
-                className="rounded-2xl object-cover h-56 col-span-2"
-              />
+            <div className="rounded-2xl border border-white/15 bg-white/5 p-6 text-center">
+              <div className="text-4xl font-serif">150+</div>
+              <div className="text-white/75 mt-1">Treks Conducted</div>
+            </div>
+            <div className="rounded-2xl border border-white/15 bg-white/5 p-6 text-center">
+              <div className="text-4xl font-serif">1000+</div>
+              <div className="text-white/75 mt-1">Happy Trekkers</div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* EXPERTISE & GROUPS */}
-      <section className="py-24 container mx-auto px-6 max-w-6xl">
-        <div className="grid md:grid-cols-2 gap-16">
-          <div>
-            <h3 className="font-serif text-2xl font-bold mb-4">
-              🏔️ High-Altitude Expertise
-            </h3>
-            <p className="text-lg text-gray-700 leading-relaxed">
-              We specialize in high-altitude trekking, with itineraries designed
-              around proper acclimatization, gradual ascent, and realistic pacing
-              — ensuring the challenge remains rewarding, not risky.
-            </p>
-          </div>
+      <section id="mission" className="py-16 md:py-24">
+        <div className="container mx-auto px-4 md:px-6 max-w-5xl">
+          <h2 className="font-serif text-3xl md:text-5xl mb-6">Our Mission</h2>
+          <p className="text-white/85 text-lg leading-relaxed">
+            To help people disconnect from the chaos of everyday life and reconnect with nature
+            through safe, responsible, and meaningful trekking experiences.
+          </p>
+        </div>
+      </section>
 
-          <div>
-            <h3 className="font-serif text-2xl font-bold mb-4">
-              🧗 Small Groups. Personal Experiences.
-            </h3>
-            <ul className="space-y-3 text-lg text-gray-700">
-              <li>✔ Enhanced safety and control</li>
-              <li>✔ Personal attention from trek leaders</li>
-              <li>✔ Strong group bonding</li>
-              <li>✔ Minimal environmental impact</li>
-            </ul>
+      <section id="difference" className="py-16 md:py-24 bg-black/20">
+        <div className="container mx-auto px-4 md:px-6 max-w-6xl">
+          <h2 className="font-serif text-3xl md:text-5xl mb-8">What Makes Us Different</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {differentiators.map((item) => (
+              <div key={item} className="rounded-xl border border-white/15 bg-white/5 p-4 text-white/85">
+                {item}
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* CUSTOM TREKS */}
-      <section className="bg-white py-24">
-        <div className="container mx-auto px-6 max-w-4xl">
-          <h2 className="font-serif text-4xl font-bold mb-8 text-center">
-            Customized Trek Experiences
-          </h2>
+      <section id="why-us" className="py-16 md:py-24">
+        <div className="container mx-auto px-4 md:px-6 max-w-6xl">
+          <h2 className="font-serif text-3xl md:text-5xl mb-8">Why Choose Us</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {chooseUs.map((item) => (
+              <div key={item} className="rounded-xl border border-white/15 bg-white/5 p-4 text-white/85">
+                {item}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
-          <p className="text-lg text-gray-700 leading-relaxed mb-8 text-center">
-            No two trekkers are the same — and neither should their journeys be.
-          </p>
+      <section className="py-16 md:py-24 bg-black/20">
+        <div className="container mx-auto px-4 md:px-6 max-w-6xl">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+            {trustCards.map((card) => (
+              <div key={card.title} className="rounded-2xl border border-white/15 bg-white/5 p-5">
+                <card.icon size={28} className="text-white mb-3" />
+                <h3 className="font-semibold text-lg">{card.title}</h3>
+                <p className="text-sm text-white/75 mt-1">{card.text}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
-          <ul className="space-y-4 text-lg text-gray-700 max-w-3xl mx-auto">
-            <li>✔ Fitness and experience level</li>
-            <li>✔ Time availability</li>
-            <li>✔ Altitude comfort</li>
-            <li>✔ Trek goals — adventure, exploration, culture, or solitude</li>
-          </ul>
-
-          <p className="text-lg text-gray-700 leading-relaxed mt-8 text-center">
-            Whether it’s a classic route or a completely bespoke expedition, we
-            tailor every detail to suit you.
+      <section id="safety" className="py-16 md:py-24">
+        <div className="container mx-auto px-4 md:px-6 max-w-5xl">
+          <h2 className="font-serif text-3xl md:text-5xl mb-6">Safety First, Always</h2>
+          <p className="text-white/85 text-lg leading-relaxed">
+            At Reboot India, safety is non-negotiable. Our trek leaders are trained in high-altitude
+            safety, first aid, and emergency response. Every trek is planned with proper
+            acclimatization, weather monitoring, and risk assessment to ensure a safe mountain
+            experience.
           </p>
         </div>
       </section>
 
-      {/* PRE-REQUISITES */}
-      <section className="py-24 container mx-auto px-6 max-w-4xl">
-        <h2 className="font-serif text-4xl font-bold mb-10 text-center">
-          Pre-Requisites Before You Trek
-        </h2>
-
-        <ul className="space-y-4 text-lg text-gray-700 leading-relaxed">
-          <li>✔ Fitness benchmarks and training guidance</li>
-          <li>✔ Altitude awareness and acclimatization planning</li>
-          <li>✔ Detailed gear and packing lists</li>
-          <li>✔ Weather and terrain expectations</li>
-        </ul>
-
-        <p className="text-lg text-gray-700 leading-relaxed mt-8">
-          So you begin the journey informed, confident, and prepared.
-        </p>
-      </section>
-
-      {/* SAFETY */}
-      <section className="bg-forest text-white py-24">
-        <div className="container mx-auto px-6 max-w-4xl text-center">
-          <h2 className="font-serif text-4xl md:text-5xl font-bold mb-8">
-            Safety Is Non-Negotiable
-          </h2>
-
-          <ul className="space-y-4 text-lg text-white/85">
-            <li>✔ Experienced mountain leaders</li>
-            <li>✔ First-aid and emergency readiness</li>
-            <li>✔ Quality equipment</li>
-            <li>✔ Continuous on-ground assessment</li>
-          </ul>
-
-          <p className="text-lg text-white/85 leading-relaxed mt-8">
-            Your safety is our highest priority — always.
+      <section id="impact" className="py-16 md:py-24 bg-black/20">
+        <div className="container mx-auto px-4 md:px-6 max-w-5xl">
+          <h2 className="font-serif text-3xl md:text-5xl mb-6">Supporting the Mountains</h2>
+          <p className="text-white/85 text-lg leading-relaxed">
+            We work closely with local communities, guides, and village partners to create livelihood
+            opportunities and promote responsible tourism. Our goal is to explore the mountains while
+            preserving their beauty for future generations.
           </p>
         </div>
       </section>
 
-      {/* TRANSPARENCY */}
-      <section className="py-24 container mx-auto px-6 max-w-4xl">
-        <h2 className="font-serif text-4xl font-bold mb-8 text-center">
-          Transparency. Always.
-        </h2>
-
-        <ul className="space-y-4 text-lg text-gray-700">
-          <li>✔ Trek difficulty and challenges</li>
-          <li>✔ Route conditions and weather realities</li>
-          <li>✔ Inclusions, exclusions, and costs</li>
-          <li>✔ What the experience truly involves</li>
-        </ul>
-
-        <p className="text-lg text-gray-700 leading-relaxed mt-8 text-center">
-          No hidden surprises. No false promises.
-        </p>
-      </section>
-
-      {/* PHILOSOPHY */}
-      <section className="bg-offwhite py-24">
-        <div className="container mx-auto px-6 max-w-4xl text-center">
-          <h2 className="font-serif text-4xl md:text-5xl font-bold mb-8">
-            Our Philosophy
-          </h2>
-          <p className="text-xl italic text-gray-700 mb-6">
-            “The mountains don’t rush — and neither do we.”
-          </p>
-          <p className="text-lg text-gray-700 leading-relaxed">
-            We practice responsible trekking, work closely with local communities,
-            and respect fragile Himalayan ecosystems — ensuring every journey
-            leaves a positive impact.
+      <section id="vision" className="py-16 md:py-24">
+        <div className="container mx-auto px-4 md:px-6 max-w-5xl">
+          <h2 className="font-serif text-3xl md:text-5xl mb-6">Our Vision</h2>
+          <p className="text-white/85 text-lg leading-relaxed">
+            To become a trusted platform for mindful adventure travel where people don’t just visit
+            the mountains — they experience, respect, and reconnect with them.
           </p>
         </div>
       </section>
 
-      {/* CLOSING */}
-      <section className="py-24 container mx-auto px-6 max-w-4xl text-center">
-        <h2 className="font-serif text-4xl font-bold mb-6">
-          Reboot India
-        </h2>
-        <p className="text-xl mb-6">
-          Beyond Trails. An Experience You Feel.
-        </p>
-        <p className="text-lg text-gray-700">
-          If you can dream it in the Himalayas,
-          <br />
-          we’ll help you experience it.
-        </p>
+      <section className="py-16 md:py-24 bg-black/30 border-y border-white/10">
+        <div className="container mx-auto px-4 md:px-6 max-w-6xl">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="rounded-2xl border border-white/15 bg-white/5 p-4">
+              <img src="/images/treks/team-1.png" alt="Neeraj" className="w-full h-52 object-cover rounded-xl" />
+              <h3 className="font-semibold mt-3">Neeraj</h3>
+              <p className="text-sm text-white/75">Co-founder | Mountain guide</p>
+            </div>
+            <div className="rounded-2xl border border-white/15 bg-white/5 p-4">
+              <img src="/images/treks/team-2.png" alt="Pratibha" className="w-full h-52 object-cover rounded-xl" />
+              <h3 className="font-semibold mt-3">Pratibha</h3>
+              <p className="text-sm text-white/75">Co-founder | Operations</p>
+            </div>
+            <div className="rounded-2xl border border-white/15 bg-white/5 p-4">
+              <img src="/images/treks/team-3.svg" alt="Rishi" className="w-full h-52 object-cover rounded-xl" />
+              <h3 className="font-semibold mt-3">Rishi</h3>
+              <p className="text-sm text-white/75">Co-founder | Technology & growth</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="py-16 md:py-24">
+        <div className="container mx-auto px-4 md:px-6 max-w-4xl text-center">
+          <div className="text-sm uppercase tracking-wider text-white/60 mb-2">Call To Action</div>
+          <h2 className="font-serif text-3xl md:text-5xl mb-4">Ready to reboot your mind?</h2>
+          <Link href="/treks">
+            <span className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-maroon hover:bg-forest transition-colors cursor-pointer">
+              <Compass size={18} />
+              Explore Treks
+            </span>
+          </Link>
+        </div>
       </section>
 
       <Footer />

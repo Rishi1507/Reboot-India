@@ -6,6 +6,7 @@ import { CheckCircle, Mail, Home as HomeIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Seo } from "@/components/Seo";
+import { PageHero } from "@/components/PageHero";
 
 /**
  * Always provide a fallback.
@@ -47,6 +48,11 @@ export default function BookingSuccess() {
         canonical="https://rebootindia.co.in/booking-success"
       />
       <Navigation />
+      <PageHero
+        title="Booking Confirmed"
+        subtitle="Your seat is secured. Check your email for details and next steps."
+        eyebrow="Success"
+      />
 
       <div className="flex-1 flex items-center justify-center px-4 py-12">
         <div className="max-w-2xl w-full text-center">

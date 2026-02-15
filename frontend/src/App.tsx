@@ -1,5 +1,6 @@
 import { Switch, Route } from "wouter";
 import { QueryClientProvider } from "@tanstack/react-query";
+import { Helmet } from "react-helmet-async";
 
 import { queryClient } from "@/lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
@@ -13,11 +14,13 @@ import TrekDetail from "@/pages/TrekDetail";
 import BlogList from "@/pages/BlogList";
 import BlogDetail from "@/pages/BlogDetail";
 import BookingSuccess from "@/pages/BookingSuccess";
+import CustomerBooking from "@/pages/CustomerBooking";
+import TrekBlogDetail from "@/pages/TrekBlogDetail";
 
 /* 👉 NEW PAGES */
 import About from "@/pages/About";
 import Team from "@/pages/Team";
-import Contact from "@/pages/Contact";
+import Contact from "@/pages/contact";
 import AdminLogin from "@/pages/AdminLogin";
 import AdminDashboard from "@/pages/AdminDashboard";
 import PrivacyPolicy from "@/pages/PrivacyPolicy";
@@ -30,9 +33,11 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/treks" component={TreksList} />
       <Route path="/treks/:slug" component={TrekDetail} />
+      <Route path="/trek/:trekSlug/:blogSlug" component={TrekBlogDetail} />
       <Route path="/blog" component={BlogList} />
       <Route path="/blog/:slug" component={BlogDetail} />
       <Route path="/booking-success" component={BookingSuccess} />
+      <Route path="/customer/booking" component={CustomerBooking} />
 
       {/* Static Company Pages */}
       <Route path="/about" component={About} />
@@ -51,9 +56,25 @@ function Router() {
 }
 
 function App() {
+  const orgSchema = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "Reboot India",
+    url: "https://rebootindia.co.in/",
+    logo: "https://rebootindia.co.in/og/logo.png",
+    sameAs: [
+      "https://www.instagram.com/",
+      "https://www.facebook.com/",
+      "https://twitter.com/",
+    ],
+  };
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
+        <Helmet>
+          <script type="application/ld+json">{JSON.stringify(orgSchema)}</script>
+        </Helmet>
         <Toaster />
         <Router />
         <WhatsAppWidget />

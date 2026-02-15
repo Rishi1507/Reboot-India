@@ -42,7 +42,7 @@ export default function Home() {
         <div className="absolute inset-0 z-0">
           <div className="absolute inset-0 bg-black/40 z-10" />
           <img
-            src="/images/treks/home-hero.svg"
+            src="/images/treks/home-hero.png"
             alt="Himalayan Landscape"
             className="w-full h-full object-cover"
           />
