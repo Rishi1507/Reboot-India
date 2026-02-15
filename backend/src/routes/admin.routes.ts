@@ -155,6 +155,19 @@ router.post("/treks", async (req, res) => {
 
 router.put("/treks/:id", async (req, res) => {
   try {
+    // Clone body safely
+    const payload: any = { ...req.body };
+
+    // ----------------------------------
+    // Remove relational & read-only fields
+    // (Frontend sends full trek object)
+    // ----------------------------------
+    delete payload.id;
+    delete payload.departures;
+    delete payload.bookings;
+    delete payload.createdAt;
+    delete payload.updatedAt;
+
     const {
       slug,
       gallery,
@@ -165,29 +178,51 @@ router.put("/treks/:id", async (req, res) => {
       originalPrice,
       discountedPrice,
       ...data
-    } = req.body;
+    } = payload;
 
+    // ----------------------------------
+    // Check slug uniqueness
+    // ----------------------------------
     if (slug) {
       const existing = await prisma.trek.findFirst({
-        where: { slug, NOT: { id: req.params.id } },
+        where: {
+          slug: String(slug).trim(),
+          NOT: { id: req.params.id },
+        },
       });
-      if (existing) return res.status(400).json({ error: "Slug already exists" });
+
+      if (existing) {
+        return res.status(400).json({ error: "Slug already exists" });
+      }
     }
 
+    // ----------------------------------
+    // Update trek safely
+    // ----------------------------------
     const trek = await prisma.trek.update({
       where: { id: req.params.id },
       data: {
-        slug,
         ...data,
-        originalPrice: toNumber(originalPrice),
-        discountedPrice: toNumber(discountedPrice),
+        slug: slug ? String(slug).trim() : undefined,
+        originalPrice:
+          originalPrice !== undefined ? toNumber(originalPrice) : undefined,
+        discountedPrice:
+          discountedPrice !== undefined ? toNumber(discountedPrice) : undefined,
         gallery: gallery !== undefined ? parseJSON(gallery) : undefined,
         itinerary: itinerary !== undefined ? parseJSON(itinerary) : undefined,
-        headerPhotos: headerPhotos !== undefined ? parseJSON(headerPhotos) : undefined,
-        morePhotos: morePhotos !== undefined ? parseJSON(morePhotos) : undefined,
-        contentBlocks: contentBlocks !== undefined ? parseJSON(contentBlocks) : undefined,
-      } as any,
+        headerPhotos:
+          headerPhotos !== undefined ? parseJSON(headerPhotos) : undefined,
+        morePhotos:
+          morePhotos !== undefined ? parseJSON(morePhotos) : undefined,
+        contentBlocks:
+          contentBlocks !== undefined ? parseJSON(contentBlocks) : undefined,
+      },
+      include: {
+        departures: true,
+        bookings: true,
+      },
     });
+
     res.json(trek);
   } catch (err) {
     console.error("Update trek error:", err);
