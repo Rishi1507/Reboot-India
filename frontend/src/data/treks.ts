@@ -200,11 +200,11 @@ export const treks: Trek[] = [
       { day: 7, title: "Return", desc: "Trek to Srikhola and drive back." }
     ],
     price: "₹8,499",
-    coverImage: "/images/treks/kuari-pass-cover.svg", // Sunrise
+    coverImage: "/images/treks/kuari-pass-cover.png", // Sunrise
     gallery: [
-      "/images/treks/kuari-pass-gallery-1.svg",
-      "/images/treks/kuari-pass-gallery-2.svg",
-      "/images/treks/kuari-pass-gallery-3.svg"
+      "/images/treks/kuari-pass-gallery-1.png",
+      "/images/treks/kuari-pass-gallery-2.png",
+      "/images/treks/kuari-pass-gallery-3.png"
     ]
   }
 ];

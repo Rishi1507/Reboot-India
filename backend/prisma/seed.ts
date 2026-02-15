@@ -269,11 +269,11 @@ const treks = [
     price: "₹8,499",
     originalPrice: 9499,
     discountedPrice: 8499,
-    coverImage: "/images/treks/kuari-pass-cover.svg",
+    coverImage: "/images/treks/kuari-pass-cover.png",
     gallery: [
-      "/images/treks/kuari-pass-gallery-1.svg",
-      "/images/treks/kuari-pass-gallery-2.svg",
-      "/images/treks/kuari-pass-gallery-3.svg"
+      "/images/treks/kuari-pass-gallery-1.png",
+      "/images/treks/kuari-pass-gallery-2.png",
+      "/images/treks/kuari-pass-gallery-3.png"
     ],
   },
 ];
