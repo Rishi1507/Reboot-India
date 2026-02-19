@@ -165,6 +165,7 @@ export function buildCouponShareEmail(payload: {
   couponCode: string;
   discountText: string;
   validTo?: string;
+  terms?: string[];
   note?: string;
 }) {
   return `
@@ -173,8 +174,78 @@ export function buildCouponShareEmail(payload: {
       <h2>Special Trek Coupon for You</h2>
       <p>Use code <strong>${payload.couponCode}</strong> to get <strong>${payload.discountText}</strong>.</p>
       ${payload.validTo ? `<p>Valid till: <strong>${payload.validTo}</strong></p>` : ""}
-      ${payload.note ? `<p style="white-space:pre-line;">${payload.note}</p>` : ""}
-      <p>Book now at rebootindia.co.in</p>
+      ${
+        Array.isArray(payload.terms) && payload.terms.length
+          ? `<div style="margin:12px 0 0;"><strong>Terms:</strong><ul style="margin:8px 0 0;padding-left:18px;">${payload.terms
+              .map((t) => `<li>${t}</li>`)
+              .join("")}</ul></div>`
+          : ""
+      }
+      <div style="margin-top:12px;">
+        <strong>How to use:</strong>
+        <ol style="margin:8px 0 0;padding-left:18px;">
+          <li>Select your trek batch and proceed to booking.</li>
+          <li>Enter the coupon code in the booking screen and click Apply.</li>
+          <li>Pay the advance to confirm your seats. Discount reflects in total/final amount.</li>
+        </ol>
+      </div>
+      ${payload.note ? `<p style="white-space:pre-line;margin-top:12px;"><strong>Note:</strong><br/>${payload.note}</p>` : ""}
+      <p style="margin-top:12px;">Book now at rebootindia.co.in</p>
+    </div>
+  </div>
+  `;
+}
+
+export function buildAdminOtpEmail(payload: { otp: string; expiresMinutes: number }) {
+  return `
+  <div style="font-family:Arial,sans-serif;background:#f5f5f5;padding:24px;">
+    <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:12px;border:1px solid #eee;padding:24px;">
+      <h2 style="margin-top:0;">Admin Login OTP</h2>
+      <p>Your Reboot India admin login OTP is:</p>
+      <div style="font-size:28px;letter-spacing:6px;font-weight:700;background:#f9fafb;border:1px solid #eee;border-radius:10px;padding:14px 16px;display:inline-block;">
+        ${payload.otp}
+      </div>
+      <p style="margin-top:16px;">This code expires in ${payload.expiresMinutes} minutes.</p>
+      <p style="color:#666;font-size:12px;margin-top:16px;">
+        If you did not request this OTP, you can ignore this email.
+      </p>
+    </div>
+  </div>
+  `;
+}
+
+export function buildBookingCancellationEmail(payload: {
+  customerName: string;
+  trekkingId: string;
+  trekTitle: string;
+  startDate: string;
+  seats: number;
+  creditGranted: number;
+  creditBalance: number;
+}) {
+  return `
+  <div style="font-family:Arial,sans-serif;background:#f5f5f5;padding:24px;">
+    <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;border:1px solid #eee;overflow:hidden;">
+      <div style="background:#5d2a2c;color:#fff;padding:20px 24px;">
+        <h1 style="margin:0;font-size:20px;">Booking Cancelled</h1>
+      </div>
+      <div style="padding:24px;">
+        <p>Hi <strong>${payload.customerName}</strong>,</p>
+        <p>Your booking for <strong>${payload.trekTitle}</strong> has been cancelled.</p>
+        <div style="background:#f9fafb;border:1px solid #eee;border-radius:10px;padding:16px;margin:16px 0;">
+          <p style="margin:0 0 8px;"><strong>Trekking ID:</strong> ${payload.trekkingId}</p>
+          <p style="margin:0 0 8px;"><strong>Start Date:</strong> ${payload.startDate}</p>
+          <p style="margin:0;"><strong>Seats:</strong> ${payload.seats}</p>
+        </div>
+        <p style="margin:0 0 8px;">
+          As per policy, the advance payment is <strong>not refunded</strong> but can be used as credit for your next trek.
+        </p>
+        <p style="margin:0 0 8px;"><strong>Credit added:</strong> â‚¹${payload.creditGranted}</p>
+        <p style="margin:0;"><strong>Your available credit:</strong> â‚¹${payload.creditBalance}</p>
+        <p style="color:#666;font-size:12px;margin-top:16px;">
+          This credit will be automatically adjusted against your pending amount on your next booking.
+        </p>
+      </div>
     </div>
   </div>
   `;

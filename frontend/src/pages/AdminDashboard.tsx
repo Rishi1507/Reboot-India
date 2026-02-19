@@ -15,6 +15,9 @@ const tabs = [
   "Payments",
   "Coupons",
   "Email Logs",
+  "Admin Users",
+  "Contact Messages",
+  "Newsletter",
   "Page FAQs",
   "Trek Blogs",
   "Trek Reviews",
@@ -80,12 +83,88 @@ const slugify = (value: string) =>
     .replace(/-+/g, "-");
 
 async function fileToDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
+  const toDataUrl = (f: File) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = reject;
+      reader.readAsDataURL(f);
+    });
+
+  const isSvg =
+    file.type === "image/svg+xml" || file.name.toLowerCase().endsWith(".svg");
+  if (isSvg) return toDataUrl(file);
+
+  // If it's already small, keep original (helps preserve PNG transparency, etc).
+  if (file.size <= 1_500_000) return toDataUrl(file);
+
+  // Resize + compress large images to avoid "payload too large" errors.
+  const inputUrl = await toDataUrl(file);
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const el = new Image();
+    el.onload = () => resolve(el);
+    el.onerror = reject;
+    el.src = inputUrl;
   });
+
+  const maxDim = 1600;
+  const scale = Math.min(1, maxDim / Math.max(img.width || 1, img.height || 1));
+  const width = Math.max(1, Math.round((img.width || 1) * scale));
+  const height = Math.max(1, Math.round((img.height || 1) * scale));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return inputUrl;
+
+  ctx.drawImage(img, 0, 0, width, height);
+  return canvas.toDataURL("image/jpeg", 0.82);
+}
+
+function AdminUserCreateForm({
+  onCreate,
+}: {
+  onCreate: (payload: { email: string; name?: string; password: string }) => void;
+}) {
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const [password, setPassword] = useState("");
+
+  return (
+    <div className="space-y-2">
+      <input
+        className="border p-2 w-full"
+        placeholder="Email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+      />
+      <input
+        className="border p-2 w-full"
+        placeholder="Name (optional)"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+      />
+      <input
+        type="password"
+        className="border p-2 w-full"
+        placeholder="Password (min 8 chars)"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+      />
+      <button
+        className="bg-maroon text-white px-4 py-2 rounded"
+        onClick={() => {
+          onCreate({ email: email.trim(), name: name.trim() || undefined, password: password.trim() });
+          setEmail("");
+          setName("");
+          setPassword("");
+        }}
+      >
+        Create Admin
+      </button>
+    </div>
+  );
 }
 
 export default function AdminDashboard() {
@@ -112,6 +191,14 @@ export default function AdminDashboard() {
   const [alert, setAlert] = useState<{ message: string; type: string } | null>(null);
   const showSuccess = (m: string) => setAlert({ message: m, type: "success" });
   const showError = (m: string) => setAlert({ message: m, type: "error" });
+  const ensureSvgFile = (file: File) => {
+    const isSvg = file.type === "image/svg+xml" || file.name.toLowerCase().endsWith(".svg");
+    if (!isSvg) {
+      showError("Only SVG images are allowed. Please upload a .svg file.");
+      return false;
+    }
+    return true;
+  };
 
   useEffect(() => {
     if (!getAdminToken()) setLocation("/admin/login");
@@ -170,12 +257,24 @@ export default function AdminDashboard() {
   const [batchSubject, setBatchSubject] = useState("");
   const [batchMessage, setBatchMessage] = useState("");
   const [selectedBatchBookingIds, setSelectedBatchBookingIds] = useState<string[]>([]);
+  const [bookingFilters, setBookingFilters] = useState({
+    q: "",
+    trekId: "",
+    departureId: "",
+    status: "",
+    paymentStatus: "",
+  });
 
   /* ================= QUERIES ================= */
 
   const treksQuery = useQuery({
     queryKey: ["admin-treks"],
     queryFn: () => adminFetch("/api/admin/treks"),
+  });
+
+  const meQuery = useQuery({
+    queryKey: ["admin-me"],
+    queryFn: () => adminFetch("/api/admin/me"),
   });
 
   const departuresQuery = useQuery({
@@ -214,6 +313,21 @@ export default function AdminDashboard() {
   const emailLogsQuery = useQuery({
     queryKey: ["admin-email-logs"],
     queryFn: () => adminFetch("/api/admin/email-logs"),
+  });
+
+  const adminUsersQuery = useQuery({
+    queryKey: ["admin-users"],
+    queryFn: () => adminFetch("/api/admin/admin-users"),
+  });
+
+  const contactMessagesQuery = useQuery({
+    queryKey: ["admin-contact-messages"],
+    queryFn: () => adminFetch("/api/admin/contact-messages"),
+  });
+
+  const newsletterQuery = useQuery({
+    queryKey: ["admin-newsletter-subscribers"],
+    queryFn: () => adminFetch("/api/admin/newsletter-subscribers"),
   });
 
   const faqsQuery = useQuery({
@@ -578,6 +692,28 @@ export default function AdminDashboard() {
     }
   };
 
+  const shareCoupon = async (id: string, code: string) => {
+    const emailsRaw = prompt("Enter recipient emails (comma separated):");
+    if (!emailsRaw) return;
+    const note = prompt("Personalised note / terms (optional):") || "";
+    const emails = emailsRaw
+      .split(/[, \n]/)
+      .map((v) => v.trim())
+      .filter(Boolean);
+
+    if (!emails.length) return showError("At least one email is required");
+
+    try {
+      const res = await adminFetch(`/api/admin/coupons/${id}/share`, {
+        method: "POST",
+        body: JSON.stringify({ emails, note }),
+      });
+      showSuccess(`Coupon ${code} shared with ${res?.sent || emails.length} user(s)`);
+    } catch (e: any) {
+      showError(e.message);
+    }
+  };
+
   const deleteFaq = async (id: string) => {
     if (!confirm("Delete this FAQ?")) return;
     try {
@@ -596,6 +732,18 @@ export default function AdminDashboard() {
       });
       showSuccess("Payment reminder sent");
       queryClient.invalidateQueries({ queryKey: ["admin-bookings"] });
+    } catch (e: any) {
+      showError(e.message);
+    }
+  };
+
+  const deleteBooking = async (bookingId: string) => {
+    if (!confirm("Delete/cancel this booking?")) return;
+    try {
+      await adminFetch(`/api/admin/bookings/${bookingId}`, { method: "DELETE" });
+      queryClient.invalidateQueries({ queryKey: ["admin-bookings"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-departures"] });
+      showSuccess("Booking cancelled");
     } catch (e: any) {
       showError(e.message);
     }
@@ -661,6 +809,44 @@ export default function AdminDashboard() {
     setLocation("/admin/login");
   };
 
+  const createAdminUser = async (payload: { email: string; name?: string; password: string }) => {
+    try {
+      await adminFetch("/api/admin/admin-users", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      showSuccess("Admin user created");
+    } catch (e: any) {
+      showError(e.message);
+    }
+  };
+
+  const resetAdminPassword = async (id: string) => {
+    const password = prompt("Enter a new password (min 8 characters):");
+    if (!password) return;
+    try {
+      await adminFetch(`/api/admin/admin-users/${id}/reset-password`, {
+        method: "POST",
+        body: JSON.stringify({ password }),
+      });
+      showSuccess("Password updated");
+    } catch (e: any) {
+      showError(e.message);
+    }
+  };
+
+  const deleteAdminUser = async (id: string) => {
+    if (!confirm("Remove admin access for this user?")) return;
+    try {
+      await adminFetch(`/api/admin/admin-users/${id}`, { method: "DELETE" });
+      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      showSuccess("Admin user removed");
+    } catch (e: any) {
+      showError(e.message);
+    }
+  };
+
   /* ================= UI ================= */
 
   return (
@@ -680,6 +866,23 @@ export default function AdminDashboard() {
       )}
 
       <div className="container mx-auto pt-28 pb-16">
+        <div className="flex items-center justify-between mb-6">
+          <div className="text-sm text-gray-700">
+            {meQuery.data?.email ? (
+              <span>
+                Signed in as <span className="font-medium">{meQuery.data.email}</span>
+                {meQuery.data.isMaster ? (
+                  <span className="ml-2 inline-flex items-center rounded-full border px-2 py-0.5 text-xs">
+                    Master
+                  </span>
+                ) : null}
+              </span>
+            ) : null}
+          </div>
+          <button className="border px-3 py-2 rounded" onClick={logout}>
+            Logout
+          </button>
+        </div>
 
         {/* Tabs */}
         <div className="flex gap-2 mb-8">
@@ -699,62 +902,79 @@ export default function AdminDashboard() {
         {/* ================= TREKS ================= */}
         {activeTab === "Treks" && (
           <div className="grid grid-cols-2 gap-8">
-            <div>
-              {(treksQuery.data || []).map((t: any) => (
-                <div key={t.id} className="border bg-white p-4 mb-3 rounded">
-                  <div className="flex justify-between">
-                    <div>
-                      <div className="font-semibold">{t.title}</div>
-                      <div className="text-xs">{t.slug}</div>
-                      <div className="text-xs">
-                        {t.isActive ? "Active" : "Inactive"}
-                      </div>
-                    </div>
-
-                    <div className="flex gap-3">
-                      <button
-                        onClick={() => {
-                          setSelectedTrek(t);
-                          setTrekForm({
-                            ...t,
-                            gallery: JSON.stringify(t.gallery || []),
-                            itinerary: JSON.stringify(t.itinerary || []),
-                          });
-                        }}
-                        className="underline text-sm"
-                      >
-                        Edit
-                      </button>
-
-                      <button
-                        onClick={() => toggleTrekStatus(t.id, t.isActive)}
-                        className="underline text-sm"
-                      >
-                        {t.isActive ? "Deactivate" : "Activate"}
-                      </button>
-                      <button
-                        onClick={() => {
-                          setActiveTab("Trek Blogs");
-                          setBlogForm(createBlogForm(t.id));
-                          setBlogFormDirty(false);
-                        }}
-                        className="underline text-sm"
-                      >
-                        Add More Details
-                      </button>
-                      <button
-                        onClick={() => {
-                          setActiveTab("Trek Reviews");
-                          setReviewForm(createReviewForm(t.id));
-                        }}
-                        className="underline text-sm"
-                      >
-                        Add Review
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
+            <div className="overflow-x-auto bg-white border rounded">
+              <table className="min-w-full text-sm">
+                <thead className="bg-gray-50 text-gray-700">
+                  <tr>
+                    <th className="text-left p-3">Title</th>
+                    <th className="text-left p-3">Slug</th>
+                    <th className="text-left p-3">Active</th>
+                    <th className="text-left p-3">Departures</th>
+                    <th className="text-left p-3">Bookings</th>
+                    <th className="text-left p-3">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(treksQuery.data || []).map((t: any) => (
+                    <tr key={t.id} className="border-t align-top">
+                      <td className="p-3 font-medium">{t.title}</td>
+                      <td className="p-3 text-xs font-mono">{t.slug}</td>
+                      <td className="p-3">{t.isActive ? "Yes" : "No"}</td>
+                      <td className="p-3">{(t.departures || []).length}</td>
+                      <td className="p-3">{(t.bookings || []).length}</td>
+                      <td className="p-3 whitespace-nowrap">
+                        <div className="flex flex-wrap gap-3">
+                          <button
+                            onClick={() => {
+                              setSelectedTrek(t);
+                              setTrekForm({
+                                ...t,
+                                gallery: JSON.stringify(t.gallery || []),
+                                itinerary: JSON.stringify(t.itinerary || []),
+                              });
+                            }}
+                            className="underline text-sm"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => toggleTrekStatus(t.id, t.isActive)}
+                            className="underline text-sm"
+                          >
+                            {t.isActive ? "Deactivate" : "Activate"}
+                          </button>
+                          <button
+                            onClick={() => {
+                              setActiveTab("Trek Blogs");
+                              setBlogForm(createBlogForm(t.id));
+                              setBlogFormDirty(false);
+                            }}
+                            className="underline text-sm"
+                          >
+                            Blog
+                          </button>
+                          <button
+                            onClick={() => {
+                              setActiveTab("Trek Reviews");
+                              setReviewForm(createReviewForm(t.id));
+                            }}
+                            className="underline text-sm"
+                          >
+                            Review
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {treksQuery.data?.length === 0 ? (
+                    <tr className="border-t">
+                      <td className="p-3 text-gray-600" colSpan={6}>
+                        No treks found.
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
             </div>
 
             {/* Full Trek Form */}
@@ -789,6 +1009,43 @@ export default function AdminDashboard() {
                 />
               ))}
 
+              <input
+                type="file"
+                accept=".svg,image/svg+xml"
+                className="border p-2 w-full mb-2"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  if (!ensureSvgFile(file)) return;
+                  const dataUrl = await fileToDataUrl(file);
+                  setTrekForm({ ...trekForm, coverImage: dataUrl });
+                }}
+              />
+
+              <div className="text-xs text-gray-600 mb-1">Gallery (SVG upload or JSON)</div>
+              <input
+                type="file"
+                multiple
+                accept=".svg,image/svg+xml"
+                className="border p-2 w-full mb-2"
+                onChange={async (e) => {
+                  const files = Array.from(e.target.files || []);
+                  if (!files.length) return;
+                  for (const f of files) {
+                    if (!ensureSvgFile(f)) return;
+                  }
+                  const urls = await Promise.all(files.map((f) => fileToDataUrl(f)));
+                  let current: any[] = [];
+                  try {
+                    current = JSON.parse(trekForm.gallery || "[]");
+                    if (!Array.isArray(current)) current = [];
+                  } catch {
+                    current = [];
+                  }
+                  setTrekForm({ ...trekForm, gallery: JSON.stringify([...current, ...urls]) });
+                }}
+              />
+
               <textarea
                 placeholder="Gallery JSON"
                 className="border p-2 w-full mb-2"
@@ -820,17 +1077,48 @@ export default function AdminDashboard() {
         {/* ================= DEPARTURES ================= */}
         {activeTab === "Departures" && (
           <div>
-            {(departuresQuery.data || []).map((d: any) => (
-              <div key={d.id} className="border bg-white p-4 mb-2">
-                {d.trekTitle} — {new Date(d.startDate).toDateString()}
-                <button
-                  onClick={() => deleteDeparture(d.id)}
-                  className="ml-4 text-red-600"
-                >
-                  Delete
-                </button>
-              </div>
-            ))}
+            <div className="overflow-x-auto bg-white border rounded">
+              <table className="min-w-full text-sm">
+                <thead className="bg-gray-50 text-gray-700">
+                  <tr>
+                    <th className="text-left p-3">Trek</th>
+                    <th className="text-left p-3">Start</th>
+                    <th className="text-left p-3">End</th>
+                    <th className="text-left p-3">Seats</th>
+                    <th className="text-left p-3">Price/Seat</th>
+                    <th className="text-left p-3">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(departuresQuery.data || []).map((d: any) => (
+                    <tr key={d.id} className="border-t">
+                      <td className="p-3">{d.trekTitle}</td>
+                      <td className="p-3">{new Date(d.startDate).toDateString()}</td>
+                      <td className="p-3">{new Date(d.endDate).toDateString()}</td>
+                      <td className="p-3">
+                        {d.bookedSeats || 0}/{d.totalSeats}
+                      </td>
+                      <td className="p-3">₹{d.pricePerSeat}</td>
+                      <td className="p-3">
+                        <button
+                          onClick={() => deleteDeparture(d.id)}
+                          className="text-red-600 underline"
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {departuresQuery.data?.length === 0 ? (
+                    <tr className="border-t">
+                      <td className="p-3 text-gray-600" colSpan={6}>
+                        No departures found.
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
 
             <div className="bg-white border p-4 mt-6">
               <h3>Create Departure</h3>
@@ -870,6 +1158,32 @@ export default function AdminDashboard() {
                 }
               />
 
+              <input
+                type="number"
+                className="border p-2 mb-2 w-full"
+                placeholder="Total Seats"
+                value={departureForm.totalSeats}
+                onChange={(e) =>
+                  setDepartureForm({
+                    ...departureForm,
+                    totalSeats: Number(e.target.value),
+                  })
+                }
+              />
+
+              <input
+                type="number"
+                className="border p-2 mb-2 w-full"
+                placeholder="Price Per Seat"
+                value={departureForm.pricePerSeat}
+                onChange={(e) =>
+                  setDepartureForm({
+                    ...departureForm,
+                    pricePerSeat: Number(e.target.value),
+                  })
+                }
+              />
+
               <button
                 onClick={() => createDeparture.mutate()}
                 className="bg-maroon text-white px-4 py-2"
@@ -881,9 +1195,9 @@ export default function AdminDashboard() {
         )}
 
         {activeTab === "Bookings" && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white border rounded p-4 space-y-3">
-              <h3 className="font-semibold">Manage Batch</h3>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="bg-white border rounded p-4 space-y-3 lg:col-span-1">
+              <h3 className="font-semibold">Batch Tools</h3>
               <select
                 className="border p-2 w-full"
                 value={selectedDepartureId}
@@ -965,89 +1279,424 @@ export default function AdminDashboard() {
               ) : null}
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-3 lg:col-span-2">
               <h3 className="font-semibold">All Bookings</h3>
-              {(bookingsQuery.data || []).map((b: any) => (
-                <div key={b.id} className="border bg-white rounded p-4">
-                  <div className="font-semibold">{b.trek?.title}</div>
-                  <div className="text-sm text-gray-600">
-                    Trekking ID: {b.trekkingId} | {b.customer?.fullName} | {b.customer?.email}
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    Seats: {b.numberOfSeats} | Paid: ₹{b.amountPaid} | Due: ₹{b.amountDue}
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    Status: {b.status} | Payment: {b.paymentStatus} | Batch:{" "}
-                    {new Date(b.departure?.startDate).toDateString()}
-                  </div>
-                  {b.amountDue > 0 ? (
-                    <button
-                      className="mt-2 border px-3 py-1 rounded text-sm"
-                      onClick={() => sendSinglePaymentReminder(b.id)}
-                    >
-                      Send Payment Reminder
-                    </button>
-                  ) : null}
+
+              <div className="bg-white border rounded p-4">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
+                  <input
+                    className="border p-2 text-sm"
+                    placeholder="Search (Trekking ID / email / name)"
+                    value={bookingFilters.q}
+                    onChange={(e) =>
+                      setBookingFilters((p) => ({ ...p, q: e.target.value }))
+                    }
+                  />
+                  <select
+                    className="border p-2 text-sm"
+                    value={bookingFilters.trekId}
+                    onChange={(e) =>
+                      setBookingFilters((p) => ({ ...p, trekId: e.target.value }))
+                    }
+                  >
+                    <option value="">All Treks</option>
+                    {trekOptions.map((t: any) => (
+                      <option key={t.id} value={t.id}>
+                        {t.title}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    className="border p-2 text-sm"
+                    value={bookingFilters.departureId}
+                    onChange={(e) =>
+                      setBookingFilters((p) => ({ ...p, departureId: e.target.value }))
+                    }
+                  >
+                    <option value="">All Batches</option>
+                    {(departuresQuery.data || []).map((d: any) => (
+                      <option key={d.id} value={d.id}>
+                        {d.trekTitle} | {new Date(d.startDate).toDateString()}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    className="border p-2 text-sm"
+                    value={bookingFilters.status}
+                    onChange={(e) =>
+                      setBookingFilters((p) => ({ ...p, status: e.target.value }))
+                    }
+                  >
+                    <option value="">All Status</option>
+                    <option value="PENDING">PENDING</option>
+                    <option value="CONFIRMED">CONFIRMED</option>
+                    <option value="FAILED">FAILED</option>
+                    <option value="CANCELLED">CANCELLED</option>
+                  </select>
+                  <select
+                    className="border p-2 text-sm"
+                    value={bookingFilters.paymentStatus}
+                    onChange={(e) =>
+                      setBookingFilters((p) => ({ ...p, paymentStatus: e.target.value }))
+                    }
+                  >
+                    <option value="">All Payments</option>
+                    <option value="PENDING_ADVANCE">PENDING_ADVANCE</option>
+                    <option value="ADVANCE_PAID">ADVANCE_PAID</option>
+                    <option value="FULLY_PAID">FULLY_PAID</option>
+                  </select>
                 </div>
-              ))}
-              {bookingsQuery.data?.length === 0 ? (
-                <div className="text-sm text-gray-600">No bookings found.</div>
-              ) : null}
+              </div>
+
+              <div className="overflow-x-auto bg-white border rounded">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-gray-50 text-gray-700">
+                    <tr>
+                      <th className="text-left p-3">Created</th>
+                      <th className="text-left p-3">Trek</th>
+                      <th className="text-left p-3">Batch</th>
+                      <th className="text-left p-3">Trekking ID</th>
+                      <th className="text-left p-3">Customer</th>
+                      <th className="text-left p-3">Seats</th>
+                      <th className="text-left p-3">Paid</th>
+                      <th className="text-left p-3">Due</th>
+                      <th className="text-left p-3">Status</th>
+                      <th className="text-left p-3">Payment</th>
+                      <th className="text-left p-3">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(() => {
+                      const rows = Array.isArray(bookingsQuery.data) ? bookingsQuery.data : [];
+                      const q = bookingFilters.q.trim().toLowerCase();
+                      const filtered = rows.filter((b: any) => {
+                        if (bookingFilters.trekId && b.trekId !== bookingFilters.trekId) return false;
+                        if (
+                          bookingFilters.departureId &&
+                          b.departureId !== bookingFilters.departureId
+                        )
+                          return false;
+                        if (bookingFilters.status && b.status !== bookingFilters.status) return false;
+                        if (
+                          bookingFilters.paymentStatus &&
+                          b.paymentStatus !== bookingFilters.paymentStatus
+                        )
+                          return false;
+                        if (!q) return true;
+                        const hay = [
+                          b.trekkingId,
+                          b.customer?.fullName,
+                          b.customer?.email,
+                          b.customer?.phone,
+                        ]
+                          .filter(Boolean)
+                          .join(" ")
+                          .toLowerCase();
+                        return hay.includes(q);
+                      });
+
+                      if (filtered.length === 0) {
+                        return (
+                          <tr className="border-t">
+                            <td className="p-3 text-gray-600" colSpan={11}>
+                              No bookings found.
+                            </td>
+                          </tr>
+                        );
+                      }
+
+                      return filtered.map((b: any) => (
+                        <tr key={b.id} className="border-t align-top">
+                          <td className="p-3 whitespace-nowrap">
+                            {b.createdAt ? new Date(b.createdAt).toLocaleString() : "-"}
+                          </td>
+                          <td className="p-3">{b.trek?.title || "-"}</td>
+                          <td className="p-3 whitespace-nowrap">
+                            {b.departure?.startDate
+                              ? new Date(b.departure.startDate).toDateString()
+                              : "-"}
+                          </td>
+                          <td className="p-3 font-medium whitespace-nowrap">{b.trekkingId}</td>
+                          <td className="p-3">
+                            <div className="font-medium">{b.customer?.fullName || "-"}</div>
+                            <div className="text-xs text-gray-600">{b.customer?.email || ""}</div>
+                            <div className="text-xs text-gray-600">{b.customer?.phone || ""}</div>
+                          </td>
+                          <td className="p-3">{b.numberOfSeats}</td>
+                          <td className="p-3">₹{b.amountPaid}</td>
+                          <td className="p-3">₹{b.amountDue}</td>
+                          <td className="p-3">{b.status}</td>
+                          <td className="p-3">{b.paymentStatus}</td>
+                          <td className="p-3 whitespace-nowrap">
+                            <div className="flex gap-3">
+                              {b.amountDue > 0 ? (
+                                <button
+                                  className="underline"
+                                  onClick={() => sendSinglePaymentReminder(b.id)}
+                                >
+                                  Reminder
+                                </button>
+                              ) : null}
+                              <button
+                                className="underline text-red-600"
+                                onClick={() => deleteBooking(b.id)}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ));
+                    })()}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
 
         {activeTab === "Customers" && (
-          <div className="space-y-3">
-            {(customersQuery.data || []).map((c: any) => (
-              <div key={c.id} className="border bg-white rounded p-4">
-                <div className="font-semibold">{c.fullName}</div>
-                <div className="text-sm text-gray-600">
-                  {c.email} | {c.phone}
-                </div>
-                <div className="text-xs text-gray-500">Bookings: {(c.bookings || []).length}</div>
-              </div>
-            ))}
-            {customersQuery.data?.length === 0 ? (
-              <div className="text-sm text-gray-600">No customers found.</div>
-            ) : null}
+          <div className="overflow-x-auto bg-white border rounded">
+            <table className="min-w-full text-sm">
+              <thead className="bg-gray-50 text-gray-700">
+                <tr>
+                  <th className="text-left p-3">Name</th>
+                  <th className="text-left p-3">Email</th>
+                  <th className="text-left p-3">Phone</th>
+                  <th className="text-left p-3">Bookings</th>
+                  <th className="text-left p-3">Created</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(customersQuery.data || []).map((c: any) => (
+                  <tr key={c.id} className="border-t">
+                    <td className="p-3 font-medium">{c.fullName}</td>
+                    <td className="p-3">{c.email}</td>
+                    <td className="p-3">{c.phone}</td>
+                    <td className="p-3">{(c.bookings || []).length}</td>
+                    <td className="p-3 whitespace-nowrap">
+                      {c.createdAt ? new Date(c.createdAt).toLocaleString() : "-"}
+                    </td>
+                  </tr>
+                ))}
+                {customersQuery.data?.length === 0 ? (
+                  <tr className="border-t">
+                    <td className="p-3 text-gray-600" colSpan={5}>
+                      No customers found.
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
           </div>
         )}
 
         {activeTab === "Payments" && (
-          <div className="space-y-3">
-            {(paymentsQuery.data || []).map((p: any) => (
-              <div key={p.id} className="border bg-white rounded p-4">
-                <div className="font-semibold">₹{p.amount}</div>
-                <div className="text-sm text-gray-600">
-                  Booking: {p.bookingId} | Stage: {p.stage} | Status: {p.status}
-                </div>
-                <div className="text-xs text-gray-500">
-                  Provider: {p.provider} | {new Date(p.createdAt).toLocaleString()}
-                </div>
-              </div>
-            ))}
-            {paymentsQuery.data?.length === 0 ? (
-              <div className="text-sm text-gray-600">No payments found.</div>
-            ) : null}
+          <div className="overflow-x-auto bg-white border rounded">
+            <table className="min-w-full text-sm">
+              <thead className="bg-gray-50 text-gray-700">
+                <tr>
+                  <th className="text-left p-3">Amount</th>
+                  <th className="text-left p-3">Booking</th>
+                  <th className="text-left p-3">Stage</th>
+                  <th className="text-left p-3">Status</th>
+                  <th className="text-left p-3">Provider</th>
+                  <th className="text-left p-3">Created</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(paymentsQuery.data || []).map((p: any) => (
+                  <tr key={p.id} className="border-t">
+                    <td className="p-3 font-medium">₹{p.amount}</td>
+                    <td className="p-3 font-mono text-xs">{p.bookingId}</td>
+                    <td className="p-3">{p.stage}</td>
+                    <td className="p-3">{p.status}</td>
+                    <td className="p-3">{p.provider}</td>
+                    <td className="p-3 whitespace-nowrap">
+                      {p.createdAt ? new Date(p.createdAt).toLocaleString() : "-"}
+                    </td>
+                  </tr>
+                ))}
+                {paymentsQuery.data?.length === 0 ? (
+                  <tr className="border-t">
+                    <td className="p-3 text-gray-600" colSpan={6}>
+                      No payments found.
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
           </div>
         )}
 
         {activeTab === "Email Logs" && (
-          <div className="space-y-3">
-            {(emailLogsQuery.data || []).map((log: any) => (
-              <div key={log.id} className="border bg-white rounded p-4">
-                <div className="font-semibold">{log.subject}</div>
-                <div className="text-sm text-gray-600">{log.to}</div>
-                <div className="text-xs text-gray-500">
-                  {log.status} | {new Date(log.createdAt).toLocaleString()}
+          <div className="overflow-x-auto bg-white border rounded">
+            <table className="min-w-full text-sm">
+              <thead className="bg-gray-50 text-gray-700">
+                <tr>
+                  <th className="text-left p-3">To</th>
+                  <th className="text-left p-3">Subject</th>
+                  <th className="text-left p-3">Status</th>
+                  <th className="text-left p-3">Created</th>
+                  <th className="text-left p-3">Error</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(emailLogsQuery.data || []).map((log: any) => (
+                  <tr key={log.id} className="border-t align-top">
+                    <td className="p-3">{log.to}</td>
+                    <td className="p-3">{log.subject}</td>
+                    <td className="p-3">{log.status}</td>
+                    <td className="p-3 whitespace-nowrap">
+                      {log.createdAt ? new Date(log.createdAt).toLocaleString() : "-"}
+                    </td>
+                    <td className="p-3 text-xs text-red-700">{log.error || ""}</td>
+                  </tr>
+                ))}
+                {emailLogsQuery.data?.length === 0 ? (
+                  <tr className="border-t">
+                    <td className="p-3 text-gray-600" colSpan={5}>
+                      No email logs found.
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {activeTab === "Admin Users" && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="overflow-x-auto bg-white border rounded">
+              <table className="min-w-full text-sm">
+                <thead className="bg-gray-50 text-gray-700">
+                  <tr>
+                    <th className="text-left p-3">Email</th>
+                    <th className="text-left p-3">Name</th>
+                    <th className="text-left p-3">Created</th>
+                    <th className="text-left p-3">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(adminUsersQuery.data || []).map((a: any) => (
+                    <tr key={a.id} className="border-t">
+                      <td className="p-3 font-medium">{a.email}</td>
+                      <td className="p-3">{a.name || ""}</td>
+                      <td className="p-3 whitespace-nowrap">
+                        {a.createdAt ? new Date(a.createdAt).toLocaleString() : "-"}
+                      </td>
+                      <td className="p-3 whitespace-nowrap">
+                        {meQuery.data?.isMaster ? (
+                          <div className="flex gap-3">
+                            <button className="underline" onClick={() => resetAdminPassword(a.id)}>
+                              Reset Password
+                            </button>
+                            <button
+                              className="underline text-red-600"
+                              onClick={() => deleteAdminUser(a.id)}
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-gray-500">Master only</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {adminUsersQuery.data?.length === 0 ? (
+                    <tr className="border-t">
+                      <td className="p-3 text-gray-600" colSpan={4}>
+                        No admin users found.
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="bg-white border p-4 rounded space-y-3">
+              <h3 className="font-semibold">Add Admin User</h3>
+              <p className="text-xs text-gray-600">
+                Only the master admin (set via `MASTER_ADMIN_EMAIL` or `ADMIN_BOOTSTRAP_EMAIL`) can add/remove admins.
+              </p>
+              {meQuery.data?.isMaster ? (
+                <AdminUserCreateForm onCreate={createAdminUser} />
+              ) : (
+                <div className="text-sm text-gray-700">
+                  You are not the master admin. Set `MASTER_ADMIN_ID` (recommended) or `MASTER_ADMIN_EMAIL` on the
+                  backend to enable this panel for your account.
                 </div>
-                {log.error ? <div className="text-xs text-red-600 mt-1">{log.error}</div> : null}
-              </div>
-            ))}
-            {emailLogsQuery.data?.length === 0 ? (
-              <div className="text-sm text-gray-600">No email logs found.</div>
-            ) : null}
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === "Contact Messages" && (
+          <div className="overflow-x-auto bg-white border rounded">
+            <table className="min-w-full text-sm">
+              <thead className="bg-gray-50 text-gray-700">
+                <tr>
+                  <th className="text-left p-3">Created</th>
+                  <th className="text-left p-3">Name</th>
+                  <th className="text-left p-3">Email</th>
+                  <th className="text-left p-3">Message</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(contactMessagesQuery.data || []).map((m: any) => (
+                  <tr key={m.id} className="border-t align-top">
+                    <td className="p-3 whitespace-nowrap">
+                      {m.createdAt ? new Date(m.createdAt).toLocaleString() : "-"}
+                    </td>
+                    <td className="p-3 font-medium">{m.name}</td>
+                    <td className="p-3">{m.email}</td>
+                    <td className="p-3 whitespace-pre-wrap text-xs text-gray-700 max-w-[600px]">
+                      {m.message}
+                    </td>
+                  </tr>
+                ))}
+                {contactMessagesQuery.data?.length === 0 ? (
+                  <tr className="border-t">
+                    <td className="p-3 text-gray-600" colSpan={4}>
+                      No contact messages yet.
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {activeTab === "Newsletter" && (
+          <div className="overflow-x-auto bg-white border rounded">
+            <table className="min-w-full text-sm">
+              <thead className="bg-gray-50 text-gray-700">
+                <tr>
+                  <th className="text-left p-3">Subscribed</th>
+                  <th className="text-left p-3">Email</th>
+                  <th className="text-left p-3">Source</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(newsletterQuery.data || []).map((s: any) => (
+                  <tr key={s.id} className="border-t">
+                    <td className="p-3 whitespace-nowrap">
+                      {s.createdAt ? new Date(s.createdAt).toLocaleString() : "-"}
+                    </td>
+                    <td className="p-3 font-medium">{s.email}</td>
+                    <td className="p-3">{s.sourcePath || ""}</td>
+                  </tr>
+                ))}
+                {newsletterQuery.data?.length === 0 ? (
+                  <tr className="border-t">
+                    <td className="p-3 text-gray-600" colSpan={3}>
+                      No newsletter subscribers yet.
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
           </div>
         )}
 
@@ -1055,23 +1704,49 @@ export default function AdminDashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div className="bg-white border p-4 rounded">
               <h3 className="font-semibold mb-3">Existing FAQs</h3>
-              {(faqsQuery.data || []).map((f: any) => (
-                <div key={f.id} className="border rounded p-3 mb-2 bg-gray-50">
-                  <div className="text-xs text-gray-500 mb-1">
-                    Page: {f.pageKey} | Order: {f.sortOrder} | {f.isActive ? "Active" : "Inactive"}
-                  </div>
-                  <div className="font-medium">{f.question}</div>
-                  <div className="text-sm text-gray-700 mt-1">{f.answer}</div>
-                  <div className="flex gap-3 mt-2 text-sm">
-                    <button onClick={() => setFaqForm(f)} className="underline">
-                      Edit
-                    </button>
-                    <button onClick={() => deleteFaq(f.id)} className="underline text-red-600">
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))}
+              <div className="overflow-x-auto border rounded">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-gray-50 text-gray-700">
+                    <tr>
+                      <th className="text-left p-3">Page</th>
+                      <th className="text-left p-3">Question</th>
+                      <th className="text-left p-3">Order</th>
+                      <th className="text-left p-3">Active</th>
+                      <th className="text-left p-3">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(faqsQuery.data || []).map((f: any) => (
+                      <tr key={f.id} className="border-t align-top">
+                        <td className="p-3 whitespace-nowrap">{f.pageKey}</td>
+                        <td className="p-3">
+                          <div className="font-medium">{f.question}</div>
+                          <div className="text-xs text-gray-600 mt-1 line-clamp-2">{f.answer}</div>
+                        </td>
+                        <td className="p-3">{f.sortOrder}</td>
+                        <td className="p-3">{f.isActive ? "Yes" : "No"}</td>
+                        <td className="p-3 whitespace-nowrap">
+                          <div className="flex gap-3">
+                            <button onClick={() => setFaqForm(f)} className="underline">
+                              Edit
+                            </button>
+                            <button onClick={() => deleteFaq(f.id)} className="underline text-red-600">
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {faqsQuery.data?.length === 0 ? (
+                      <tr className="border-t">
+                        <td className="p-3 text-gray-600" colSpan={5}>
+                          No FAQs found.
+                        </td>
+                      </tr>
+                    ) : null}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
             <div className="bg-white border p-4 rounded">
@@ -1142,19 +1817,54 @@ export default function AdminDashboard() {
         {activeTab === "Coupons" && (
           <div className="grid grid-cols-2 gap-8">
             <div>
-              {(couponsQuery.data || []).map((c: any) => (
-                <div key={c.id} className="border bg-white p-4 mb-2">
-                  {c.code} — {c.type} — {c.value} —{" "}
-                  {c.isActive ? "Active" : "Inactive"}
-
-                  <button
-                    onClick={() => toggleCouponStatus(c.id, c.isActive)}
-                    className="ml-4 underline"
-                  >
-                    {c.isActive ? "Deactivate" : "Activate"}
-                  </button>
-                </div>
-              ))}
+              <div className="overflow-x-auto bg-white border rounded">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-gray-50 text-gray-700">
+                    <tr>
+                      <th className="text-left p-3">Code</th>
+                      <th className="text-left p-3">Type</th>
+                      <th className="text-left p-3">Value</th>
+                      <th className="text-left p-3">Used</th>
+                      <th className="text-left p-3">Active</th>
+                      <th className="text-left p-3">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(couponsQuery.data || []).map((c: any) => (
+                      <tr key={c.id} className="border-t">
+                        <td className="p-3 font-medium">{c.code}</td>
+                        <td className="p-3">{c.type}</td>
+                        <td className="p-3">{c.value}</td>
+                        <td className="p-3">{c.usedCount || 0}</td>
+                        <td className="p-3">{c.isActive ? "Yes" : "No"}</td>
+                        <td className="p-3 whitespace-nowrap">
+                          <div className="flex gap-3">
+                            <button
+                              onClick={() => toggleCouponStatus(c.id, c.isActive)}
+                              className="underline"
+                            >
+                              {c.isActive ? "Deactivate" : "Activate"}
+                            </button>
+                            <button
+                              onClick={() => shareCoupon(c.id, c.code)}
+                              className="underline"
+                            >
+                              Share
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {couponsQuery.data?.length === 0 ? (
+                      <tr className="border-t">
+                        <td className="p-3 text-gray-600" colSpan={6}>
+                          No coupons found.
+                        </td>
+                      </tr>
+                    ) : null}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
             <div className="bg-white border p-4">
@@ -1244,30 +1954,58 @@ export default function AdminDashboard() {
                 </select>
               </div>
 
-              {(blogsQuery.data || []).map((b: any) => (
-                <div key={b.id} className="border rounded p-3 mb-2 bg-gray-50">
-                  <div className="font-medium">{b.title}</div>
-                  <div className="text-xs">
-                    {b.trek?.title} | {b.status} | Featured: {b.featured ? "Yes" : "No"}
-                  </div>
-                  <div className="flex gap-2 mt-2 text-sm">
-                    <button onClick={() => loadBlog(b)} className="underline">
-                      Edit
-                    </button>
-                    <button onClick={() => deleteBlog(b.id)} className="underline text-red-600">
-                      Delete
-                    </button>
-                    <a
-                      href={`/trek/${b.trek?.slug}/${b.slug}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="underline"
-                    >
-                      Preview
-                    </a>
-                  </div>
-                </div>
-              ))}
+              <div className="overflow-x-auto border rounded">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-gray-50 text-gray-700">
+                    <tr>
+                      <th className="text-left p-3">Title</th>
+                      <th className="text-left p-3">Trek</th>
+                      <th className="text-left p-3">Status</th>
+                      <th className="text-left p-3">Featured</th>
+                      <th className="text-left p-3">Updated</th>
+                      <th className="text-left p-3">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(blogsQuery.data || []).map((b: any) => (
+                      <tr key={b.id} className="border-t align-top">
+                        <td className="p-3 font-medium">{b.title}</td>
+                        <td className="p-3">{b.trek?.title || "-"}</td>
+                        <td className="p-3">{b.status}</td>
+                        <td className="p-3">{b.featured ? "Yes" : "No"}</td>
+                        <td className="p-3 whitespace-nowrap">
+                          {b.updatedAt ? new Date(b.updatedAt).toLocaleString() : "-"}
+                        </td>
+                        <td className="p-3 whitespace-nowrap">
+                          <div className="flex gap-3">
+                            <button onClick={() => loadBlog(b)} className="underline">
+                              Edit
+                            </button>
+                            <button onClick={() => deleteBlog(b.id)} className="underline text-red-600">
+                              Delete
+                            </button>
+                            <a
+                              href={`/trek/${b.trek?.slug}/${b.slug}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="underline"
+                            >
+                              Preview
+                            </a>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {blogsQuery.data?.length === 0 ? (
+                      <tr className="border-t">
+                        <td className="p-3 text-gray-600" colSpan={6}>
+                          No trek blogs found.
+                        </td>
+                      </tr>
+                    ) : null}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
             <div className="bg-white border p-4 rounded">
@@ -1354,6 +2092,25 @@ export default function AdminDashboard() {
                 value={blogForm.itineraryText}
                 onChange={(e) => setBlogForm({ ...blogForm, itineraryText: e.target.value })}
               />
+              <div className="text-xs text-gray-600 mb-1">Gallery (SVG upload or URLs one per line)</div>
+              <input
+                type="file"
+                multiple
+                accept=".svg,image/svg+xml"
+                className="border p-2 w-full mb-2"
+                onChange={async (e) => {
+                  const files = Array.from(e.target.files || []);
+                  if (!files.length) return;
+                  for (const f of files) {
+                    if (!ensureSvgFile(f)) return;
+                  }
+                  const urls = await Promise.all(files.map((f) => fileToDataUrl(f)));
+                  const existing = String(blogForm.galleryText || "").trim();
+                  const merged = [...(existing ? existing.split("\n").map((v) => v.trim()).filter(Boolean) : []), ...urls];
+                  setBlogForm({ ...blogForm, galleryText: merged.join("\n") });
+                  setBlogFormDirty(true);
+                }}
+              />
               <input
                 className="border p-2 w-full mb-2"
                 placeholder="Featured Image URL"
@@ -1362,11 +2119,12 @@ export default function AdminDashboard() {
               />
               <input
                 type="file"
-                accept="image/*"
+                accept=".svg,image/svg+xml"
                 className="border p-2 w-full mb-2"
                 onChange={async (e) => {
                   const file = e.target.files?.[0];
                   if (!file) return;
+                  if (!ensureSvgFile(file)) return;
                   const dataUrl = await fileToDataUrl(file);
                   setBlogForm({ ...blogForm, featuredImage: dataUrl });
                 }}
@@ -1498,23 +2256,70 @@ export default function AdminDashboard() {
                   <option value="false">Non Featured</option>
                 </select>
               </div>
-              {(reviewsQuery.data || []).map((r: any) => (
-                <div key={r.id} className="border rounded p-3 mb-2 bg-gray-50">
-                  <div className="flex items-center gap-2">
-                    {r.reviewerPhotoUrl ? <img src={r.reviewerPhotoUrl} className="w-10 h-10 rounded-full object-cover border" /> : <div className="w-10 h-10 rounded-full border" />}
-                    <div>
-                      <div className="font-medium">{r.reviewerName} ({r.rating}★)</div>
-                      <div className="text-xs">{r.trek?.title} | {r.status} | Featured: {r.featured ? "Yes" : "No"}</div>
-                    </div>
-                  </div>
-                  <div className="flex gap-2 text-sm mt-2">
-                    <button onClick={() => loadReview(r)} className="underline">Edit</button>
-                    <button onClick={() => setReviewStatus(r.id, "APPROVED")} className="underline">Approve</button>
-                    <button onClick={() => setReviewStatus(r.id, "HIDDEN")} className="underline">Hide</button>
-                    <button onClick={() => deleteReview(r.id)} className="underline text-red-600">Delete</button>
-                  </div>
-                </div>
-              ))}
+              <div className="overflow-x-auto border rounded">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-gray-50 text-gray-700">
+                    <tr>
+                      <th className="text-left p-3">Reviewer</th>
+                      <th className="text-left p-3">Trek</th>
+                      <th className="text-left p-3">Rating</th>
+                      <th className="text-left p-3">Status</th>
+                      <th className="text-left p-3">Featured</th>
+                      <th className="text-left p-3">Updated</th>
+                      <th className="text-left p-3">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(reviewsQuery.data || []).map((r: any) => (
+                      <tr key={r.id} className="border-t align-top">
+                        <td className="p-3">
+                          <div className="flex items-center gap-2">
+                            {r.reviewerPhotoUrl ? (
+                              <img
+                                src={r.reviewerPhotoUrl}
+                                className="w-8 h-8 rounded-full object-cover border"
+                              />
+                            ) : (
+                              <div className="w-8 h-8 rounded-full border" />
+                            )}
+                            <div className="font-medium">{r.reviewerName}</div>
+                          </div>
+                        </td>
+                        <td className="p-3">{r.trek?.title || "-"}</td>
+                        <td className="p-3">{r.rating}★</td>
+                        <td className="p-3">{r.status}</td>
+                        <td className="p-3">{r.featured ? "Yes" : "No"}</td>
+                        <td className="p-3 whitespace-nowrap">
+                          {r.updatedAt ? new Date(r.updatedAt).toLocaleString() : "-"}
+                        </td>
+                        <td className="p-3 whitespace-nowrap">
+                          <div className="flex gap-3">
+                            <button onClick={() => loadReview(r)} className="underline">
+                              Edit
+                            </button>
+                            <button onClick={() => setReviewStatus(r.id, "APPROVED")} className="underline">
+                              Approve
+                            </button>
+                            <button onClick={() => setReviewStatus(r.id, "HIDDEN")} className="underline">
+                              Hide
+                            </button>
+                            <button onClick={() => deleteReview(r.id)} className="underline text-red-600">
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {reviewsQuery.data?.length === 0 ? (
+                      <tr className="border-t">
+                        <td className="p-3 text-gray-600" colSpan={7}>
+                          No reviews found.
+                        </td>
+                      </tr>
+                    ) : null}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
             <div className="bg-white border p-4 rounded">
@@ -1529,6 +2334,7 @@ export default function AdminDashboard() {
               <input type="file" accept="image/*" className="border p-2 w-full mb-2" onChange={async (e) => {
                 const file = e.target.files?.[0];
                 if (!file) return;
+                if (!ensureSvgFile(file)) return;
                 const dataUrl = await fileToDataUrl(file);
                 setReviewForm({ ...reviewForm, reviewerPhotoUrl: dataUrl });
               }} />

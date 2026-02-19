@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type Departure = {
   id: string;
@@ -30,10 +30,21 @@ const MONTHS = [
   "Dec",
 ];
 
-const toDateKey = (d: Date) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
-    d.getDate()
-  ).padStart(2, "0")}`;
+function toDateParts(value: string | Date) {
+  if (typeof value === "string") {
+    const head = value.slice(0, 10);
+    const m = head.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (m) {
+      return { y: Number(m[1]), m: Number(m[2]), d: Number(m[3]) };
+    }
+  }
+
+  const d = value instanceof Date ? value : new Date(value);
+  return { y: d.getUTCFullYear(), m: d.getUTCMonth() + 1, d: d.getUTCDate() };
+}
+
+const toDateKey = (y: number, m: number, d: number) =>
+  `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 
 export function AvailabilityCalendar({
   departures,
@@ -42,12 +53,12 @@ export function AvailabilityCalendar({
 }: AvailabilityCalendarProps) {
   const normalized = useMemo(() => {
     return (departures || []).map((d) => {
-      const start = new Date(d.startDate);
+      const parts = toDateParts(d.startDate);
       return {
         ...d,
-        _start: start,
-        _dateKey: toDateKey(start),
-        _monthKey: `${start.getFullYear()}-${start.getMonth()}`,
+        _start: new Date(parts.y, parts.m - 1, parts.d),
+        _dateKey: toDateKey(parts.y, parts.m, parts.d),
+        _monthKey: `${parts.y}-${parts.m - 1}`,
       };
     });
   }, [departures]);
@@ -71,6 +82,11 @@ export function AvailabilityCalendar({
 
   const [activeMonth, setActiveMonth] = useState(monthKeys[0]);
 
+  useEffect(() => {
+    if (!monthKeys.length) return;
+    if (!monthKeys.includes(activeMonth)) setActiveMonth(monthKeys[0]);
+  }, [activeMonth, monthKeys]);
+
   const [year, month] = activeMonth.split("-").map(Number);
   const firstDay = new Date(year, month, 1);
   const startOffset = firstDay.getDay();
@@ -88,7 +104,7 @@ export function AvailabilityCalendar({
     const dayNumber = index - startOffset + 1;
     if (dayNumber < 1 || dayNumber > daysInMonth) return null;
     const date = new Date(year, month, dayNumber);
-    const key = toDateKey(date);
+    const key = toDateKey(year, month + 1, dayNumber);
     const dep = byDateKey.get(key);
     const seatsLeft = dep
       ? dep.totalSeats - dep.bookedSeats

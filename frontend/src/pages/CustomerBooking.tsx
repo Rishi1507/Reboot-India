@@ -83,6 +83,30 @@ export default function CustomerBooking() {
     rzp.open();
   }
 
+  async function cancelBooking(bookingId: string) {
+    const confirmValue =
+      (emailOrPhone || "").trim() ||
+      prompt("Enter the email or phone used for this booking to confirm cancellation:") ||
+      "";
+    if (!confirmValue.trim()) return;
+    if (!confirm("Cancel this booking? Advance paid will be added as credit for your next trek.")) {
+      return;
+    }
+
+    const res = await fetch(`${API}/api/bookings/${bookingId}/cancel`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ emailOrPhone: confirmValue.trim() }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || "Cancellation failed");
+
+    alert(
+      `Booking cancelled. Credit added: ₹${data?.creditGranted ?? 0}. Available credit: ₹${data?.creditBalance ?? 0}.`,
+    );
+    lookup();
+  }
+
   return (
     <div className="min-h-screen bg-offwhite">
       <Seo
@@ -133,6 +157,12 @@ export default function CustomerBooking() {
               <div className="text-sm mt-1">
                 Total: ₹{b.finalAmount} | Paid: ₹{b.amountPaid} | Due: ₹{b.amountDue}
               </div>
+              {b.creditUsed ? (
+                <div className="text-xs text-gray-600 mt-1">Credit used: INR {b.creditUsed}</div>
+              ) : null}
+              {b.status === "CANCELLED" ? (
+                <div className="mt-2 text-rose-700 text-sm font-medium">Cancelled</div>
+              ) : null}
               {b.amountDue > 0 ? (
                 <button
                   onClick={() => payFullNow(b.id)}
@@ -143,6 +173,14 @@ export default function CustomerBooking() {
               ) : (
                 <div className="mt-2 text-green-700 text-sm font-medium">Fully paid</div>
               )}
+              {b.status !== "CANCELLED" && b.paymentStatus !== "FULLY_PAID" ? (
+                <button
+                  onClick={() => cancelBooking(b.id)}
+                  className="mt-3 border text-red-700 border-red-200 px-4 py-2 rounded"
+                >
+                  Cancel Booking
+                </button>
+              ) : null}
             </div>
           ))}
         </div>

@@ -98,6 +98,7 @@ model Customer {
   fullName String
   email    String   @unique
   phone    String
+  creditBalance Int  @default(0)
   createdAt DateTime @default(now())
 
   bookings Booking[]
@@ -118,11 +119,14 @@ model Booking {
   couponId          String?
   amountPaid        Int      @default(0)
   amountDue         Int      @default(0)
+  creditUsed        Int      @default(0)
+  creditGranted     Int      @default(0)
   advanceAmount     Int      @default(500)
   fullPaymentDiscountPercent Int @default(10)
   paymentStatus     BookingPaymentStatus @default(PENDING_ADVANCE)
   dueReminderSentAt DateTime?
   welcomeSentAt     DateTime?
+  cancelledAt       DateTime?
 
   status            BookingStatus @default(PENDING)
 
@@ -201,6 +205,22 @@ model AdminUser {
   passwordHash String
   name         String?
   createdAt    DateTime @default(now())
+
+  loginOtps AdminLoginOtp[]
+}
+
+model AdminLoginOtp {
+  id          String    @id @default(uuid())
+  adminUserId String
+  codeHash    String
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  adminUser AdminUser @relation(fields: [adminUserId], references: [id])
+
+  @@index([adminUserId])
+  @@index([expiresAt])
 }
 
 model EmailLog {
@@ -287,4 +307,24 @@ model TrekReview {
 
   @@index([trekId])
   @@index([status])
+}
+
+model ContactMessage {
+  id        String   @id @default(uuid())
+  name      String
+  email     String
+  message   String
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([email])
+}
+
+model NewsletterSubscriber {
+  id         String   @id @default(uuid())
+  email      String   @unique
+  sourcePath String?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
 }

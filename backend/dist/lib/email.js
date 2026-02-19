@@ -8,6 +8,7 @@ exports.buildAdvanceBookingEmail = buildAdvanceBookingEmail;
 exports.buildPaymentReminderEmail = buildPaymentReminderEmail;
 exports.buildBatchMessageEmail = buildBatchMessageEmail;
 exports.buildCouponShareEmail = buildCouponShareEmail;
+exports.buildAdminOtpEmail = buildAdminOtpEmail;
 const nodemailer_1 = __importDefault(require("nodemailer"));
 const db_1 = require("../db");
 let transporter = null;
@@ -132,6 +133,23 @@ function buildCouponShareEmail(payload) {
       ${payload.validTo ? `<p>Valid till: <strong>${payload.validTo}</strong></p>` : ""}
       ${payload.note ? `<p style="white-space:pre-line;">${payload.note}</p>` : ""}
       <p>Book now at rebootindia.co.in</p>
+    </div>
+  </div>
+  `;
+}
+function buildAdminOtpEmail(payload) {
+    return `
+  <div style="font-family:Arial,sans-serif;background:#f5f5f5;padding:24px;">
+    <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:12px;border:1px solid #eee;padding:24px;">
+      <h2 style="margin-top:0;">Admin Login OTP</h2>
+      <p>Your Reboot India admin login OTP is:</p>
+      <div style="font-size:28px;letter-spacing:6px;font-weight:700;background:#f9fafb;border:1px solid #eee;border-radius:10px;padding:14px 16px;display:inline-block;">
+        ${payload.otp}
+      </div>
+      <p style="margin-top:16px;">This code expires in ${payload.expiresMinutes} minutes.</p>
+      <p style="color:#666;font-size:12px;margin-top:16px;">
+        If you did not request this OTP, you can ignore this email.
+      </p>
     </div>
   </div>
   `;

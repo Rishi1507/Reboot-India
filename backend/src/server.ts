@@ -9,6 +9,7 @@ import paymentRoutes from "./routes/payment.routes";
 import trekRoutes from "./routes/trek.routes";
 import couponRoutes from "./routes/coupon.routes";
 import faqRoutes from "./routes/faq.routes";
+import publicRoutes from "./routes/public.routes";
 import { prisma } from "./db";
 import { buildBatchMessageEmail, buildPaymentReminderEmail, sendEmail } from "./lib/email";
 
@@ -16,8 +17,9 @@ dotenv.config();
 
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: "100mb" }));
-app.use(express.urlencoded({ extended: true, limit: "100mb" }));
+// Admin can upload images as data URLs (base64) in trek blogs/reviews. Those payloads can be large.
+app.use(express.json({ limit: "250mb" }));
+app.use(express.urlencoded({ extended: true, limit: "250mb" }));
 
 app.use(healthRoutes);
 app.use("/api/bookings", bookingRoutes);
@@ -26,6 +28,7 @@ app.use("/api/payment", paymentRoutes);
 app.use("/api/treks", trekRoutes);
 app.use("/api/coupons", couponRoutes);
 app.use("/api/faqs", faqRoutes);
+app.use("/api", publicRoutes);
 
 async function runBookingAutomations() {
   const now = new Date();

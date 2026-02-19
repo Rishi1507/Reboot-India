@@ -19,6 +19,7 @@ export function Footer() {
   const { toast } = useToast();
   const [location] = useLocation();
   const [email, setEmail] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const [faqs, setFaqs] = useState<any[]>([]);
 
   useEffect(() => {
@@ -29,7 +30,7 @@ export function Footer() {
       .catch(() => setFaqs([]));
   }, [location]);
 
-  const handleSubscribe = () => {
+  const handleSubscribe = async () => {
     if (!email || !email.includes("@")) {
       toast({
         title: "Enter a valid email",
@@ -37,11 +38,30 @@ export function Footer() {
       });
       return;
     }
-    toast({
-      title: "Subscribed",
-      description: "Thanks for subscribing to Reboot India updates.",
-    });
-    setEmail("");
+
+    try {
+      setSubmitting(true);
+      const res = await fetch(`${API}/api/newsletter/subscribe`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, sourcePath: location }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || "Subscription failed");
+
+      toast({
+        title: "Subscribed",
+        description: "Thanks for subscribing to Reboot India updates.",
+      });
+      setEmail("");
+    } catch (err: any) {
+      toast({
+        title: "Subscription failed",
+        description: err?.message || "Please try again.",
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const faqSchema =
@@ -196,6 +216,7 @@ export function Footer() {
               />
               <button
                 onClick={handleSubscribe}
+                disabled={submitting}
                 className="bg-maroon hover:bg-forest text-white px-4 rounded-lg transition-colors"
               >
                 →

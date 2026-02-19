@@ -13,13 +13,15 @@ const payment_routes_1 = __importDefault(require("./routes/payment.routes"));
 const trek_routes_1 = __importDefault(require("./routes/trek.routes"));
 const coupon_routes_1 = __importDefault(require("./routes/coupon.routes"));
 const faq_routes_1 = __importDefault(require("./routes/faq.routes"));
+const public_routes_1 = __importDefault(require("./routes/public.routes"));
 const db_1 = require("./db");
 const email_1 = require("./lib/email");
 dotenv_1.default.config();
 const app = (0, express_1.default)();
 app.use((0, cors_1.default)());
-app.use(express_1.default.json({ limit: "100mb" }));
-app.use(express_1.default.urlencoded({ extended: true, limit: "100mb" }));
+// Admin can upload images as data URLs (base64) in trek blogs/reviews. Those payloads can be large.
+app.use(express_1.default.json({ limit: "250mb" }));
+app.use(express_1.default.urlencoded({ extended: true, limit: "250mb" }));
 app.use(health_routes_1.default);
 app.use("/api/bookings", booking_routes_1.default);
 app.use("/api/admin", admin_routes_1.default);
@@ -27,6 +29,7 @@ app.use("/api/payment", payment_routes_1.default);
 app.use("/api/treks", trek_routes_1.default);
 app.use("/api/coupons", coupon_routes_1.default);
 app.use("/api/faqs", faq_routes_1.default);
+app.use("/api", public_routes_1.default);
 async function runBookingAutomations() {
     const now = new Date();
     const twoDaysFromNow = new Date(now.getTime() + 48 * 60 * 60 * 1000);

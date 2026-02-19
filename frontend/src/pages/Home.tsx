@@ -48,7 +48,7 @@ export default function Home() {
           />
         </div>
 
-        <div className="relative z-20 text-center px-4 max-w-4xl mx-auto">
+        <div className="relative z-20 text-center px-4 max-w-4xl mx-auto pt-24 md:pt-16">
           <span className="inline-block py-1 px-4 rounded-full border border-white/30 bg-white/10 backdrop-blur-md text-white text-xs md:text-sm font-medium tracking-widest uppercase mb-6">
             Adventure Awaits
           </span>

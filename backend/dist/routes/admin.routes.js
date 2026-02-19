@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
+const crypto_1 = __importDefault(require("crypto"));
 const db_1 = require("../db");
 const email_1 = require("../lib/email");
 const router = (0, express_1.Router)();
@@ -75,6 +76,9 @@ router.post("/login", async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password)
         return res.status(400).json({ error: "Missing credentials" });
+    if (!process.env.BOOKING_EMAIL_USER || !process.env.BOOKING_EMAIL_PASS) {
+        return res.status(500).json({ error: "Email OTP is not configured on the server" });
+    }
     let admin = await db_1.prisma.adminUser.findUnique({ where: { email } });
     if (!admin) {
         if (email === process.env.ADMIN_BOOTSTRAP_EMAIL &&
@@ -89,7 +93,46 @@ router.post("/login", async (req, res) => {
     const valid = await bcryptjs_1.default.compare(password, admin.passwordHash);
     if (!valid)
         return res.status(401).json({ error: "Invalid credentials" });
-    return res.json({ token: signToken(admin.id) });
+    const otp = crypto_1.default.randomInt(100000, 1000000).toString();
+    const expiresMinutes = 10;
+    const expiresAt = new Date(Date.now() + expiresMinutes * 60 * 1000);
+    const codeHash = await bcryptjs_1.default.hash(otp, 10);
+    const record = await db_1.prisma.adminLoginOtp.create({
+        data: {
+            adminUserId: admin.id,
+            codeHash,
+            expiresAt,
+        },
+    });
+    await (0, email_1.sendEmail)({
+        to: admin.email,
+        subject: "Your Reboot India Admin OTP",
+        html: (0, email_1.buildAdminOtpEmail)({ otp, expiresMinutes }),
+    });
+    return res.json({ otpRequired: true, otpId: record.id });
+});
+router.post("/login/verify-otp", async (req, res) => {
+    const { otpId, otp } = req.body || {};
+    if (!otpId || !otp)
+        return res.status(400).json({ error: "Missing otpId or otp" });
+    const record = await db_1.prisma.adminLoginOtp.findUnique({
+        where: { id: String(otpId) },
+        include: { adminUser: true },
+    });
+    if (!record)
+        return res.status(401).json({ error: "Invalid OTP" });
+    if (record.usedAt)
+        return res.status(401).json({ error: "OTP already used" });
+    if (record.expiresAt.getTime() < Date.now())
+        return res.status(401).json({ error: "OTP expired" });
+    const ok = await bcryptjs_1.default.compare(String(otp).trim(), record.codeHash);
+    if (!ok)
+        return res.status(401).json({ error: "Invalid OTP" });
+    await db_1.prisma.adminLoginOtp.update({
+        where: { id: record.id },
+        data: { usedAt: new Date() },
+    });
+    return res.json({ token: signToken(record.adminUserId) });
 });
 router.use(authMiddleware);
 router.get("/me", async (req, res) => {
@@ -98,6 +141,70 @@ router.get("/me", async (req, res) => {
         select: { id: true, email: true, name: true, createdAt: true },
     });
     res.json(admin);
+});
+async function isMasterAdmin(adminId) {
+    const masterEmail = String(process.env.MASTER_ADMIN_EMAIL || process.env.ADMIN_BOOTSTRAP_EMAIL || "")
+        .trim()
+        .toLowerCase();
+    if (!masterEmail)
+        return false;
+    const admin = await db_1.prisma.adminUser.findUnique({
+        where: { id: adminId },
+        select: { email: true },
+    });
+    return admin?.email?.toLowerCase?.() === masterEmail;
+}
+router.get("/admin-users", async (_, res) => {
+    const admins = await db_1.prisma.adminUser.findMany({
+        select: { id: true, email: true, name: true, createdAt: true },
+        orderBy: { createdAt: "desc" },
+    });
+    res.json(admins);
+});
+router.post("/admin-users", async (req, res) => {
+    if (!(await isMasterAdmin(req.adminId)))
+        return res.status(403).json({ error: "Forbidden" });
+    const email = String(req.body?.email || "").trim().toLowerCase();
+    const password = String(req.body?.password || "").trim();
+    const name = req.body?.name ? String(req.body.name).trim() : null;
+    if (!email || !email.includes("@"))
+        return res.status(400).json({ error: "Valid email required" });
+    if (!password || password.length < 8) {
+        return res.status(400).json({ error: "Password must be at least 8 characters" });
+    }
+    const exists = await db_1.prisma.adminUser.findUnique({ where: { email } });
+    if (exists)
+        return res.status(400).json({ error: "Admin already exists" });
+    const passwordHash = await bcryptjs_1.default.hash(password, 10);
+    const admin = await db_1.prisma.adminUser.create({
+        data: { email, passwordHash, name: name || undefined },
+        select: { id: true, email: true, name: true, createdAt: true },
+    });
+    res.json(admin);
+});
+router.post("/admin-users/:id/reset-password", async (req, res) => {
+    if (!(await isMasterAdmin(req.adminId)))
+        return res.status(403).json({ error: "Forbidden" });
+    const password = String(req.body?.password || "").trim();
+    if (!password || password.length < 8) {
+        return res.status(400).json({ error: "Password must be at least 8 characters" });
+    }
+    const passwordHash = await bcryptjs_1.default.hash(password, 10);
+    const admin = await db_1.prisma.adminUser.update({
+        where: { id: req.params.id },
+        data: { passwordHash },
+        select: { id: true, email: true, name: true, createdAt: true },
+    });
+    res.json(admin);
+});
+router.delete("/admin-users/:id", async (req, res) => {
+    if (!(await isMasterAdmin(req.adminId)))
+        return res.status(403).json({ error: "Forbidden" });
+    if (req.params.id === req.adminId) {
+        return res.status(400).json({ error: "Cannot delete your own admin user" });
+    }
+    await db_1.prisma.adminUser.delete({ where: { id: req.params.id } });
+    res.json({ success: true });
 });
 router.get("/treks", async (_, res) => {
     const treks = await db_1.prisma.trek.findMany({
@@ -235,6 +342,66 @@ router.get("/bookings", async (_, res) => {
         orderBy: { createdAt: "desc" },
     });
     res.json(bookings);
+});
+router.delete("/bookings/:id", async (req, res) => {
+    try {
+        const id = req.params.id;
+        const updated = await db_1.prisma.$transaction(async (tx) => {
+            const booking = await tx.booking.findUnique({
+                where: { id },
+                include: { departure: true },
+            });
+            if (!booking)
+                return null;
+            if (booking.status === "CANCELLED") {
+                return tx.booking.findUnique({
+                    where: { id },
+                    include: { trek: true, departure: true, customer: true, coupon: true, payments: true },
+                });
+            }
+            // Revert seat reservation if this booking had been confirmed (bookedSeats increments on first payment verify).
+            if (booking.status === "CONFIRMED" && booking.departure) {
+                const newBookedSeats = Math.max(0, booking.departure.bookedSeats - booking.numberOfSeats);
+                await tx.departure.update({
+                    where: { id: booking.departureId },
+                    data: { bookedSeats: newBookedSeats },
+                });
+            }
+            if (booking.couponId) {
+                const hadConfirmedRedemption = (await tx.couponRedemption.count({
+                    where: { bookingId: id, couponId: booking.couponId, status: "CONFIRMED" },
+                })) > 0;
+                await tx.couponRedemption.updateMany({
+                    where: { bookingId: id, couponId: booking.couponId },
+                    data: { status: "CANCELLED" },
+                });
+                if (hadConfirmedRedemption) {
+                    const coupon = await tx.coupon.findUnique({ where: { id: booking.couponId } });
+                    if (coupon) {
+                        await tx.coupon.update({
+                            where: { id: coupon.id },
+                            data: { usedCount: Math.max(0, (coupon.usedCount || 0) - 1) },
+                        });
+                    }
+                }
+            }
+            await tx.booking.update({
+                where: { id },
+                data: { status: "CANCELLED" },
+            });
+            return tx.booking.findUnique({
+                where: { id },
+                include: { trek: true, departure: true, customer: true, coupon: true, payments: true },
+            });
+        });
+        if (!updated)
+            return res.status(404).json({ error: "Booking not found" });
+        res.json(updated);
+    }
+    catch (err) {
+        console.error("Cancel booking error:", err);
+        res.status(500).json({ error: "Failed to cancel booking" });
+    }
 });
 router.get("/bookings/pending-full-payment", async (_, res) => {
     const now = new Date();
@@ -408,6 +575,18 @@ router.get("/customers", async (_, res) => {
 router.get("/payments", async (_, res) => {
     const payments = await db_1.prisma.payment.findMany({ orderBy: { createdAt: "desc" } });
     res.json(payments);
+});
+router.get("/contact-messages", async (_, res) => {
+    const messages = await db_1.prisma.contactMessage.findMany({
+        orderBy: { createdAt: "desc" },
+    });
+    res.json(messages);
+});
+router.get("/newsletter-subscribers", async (_, res) => {
+    const subscribers = await db_1.prisma.newsletterSubscriber.findMany({
+        orderBy: { createdAt: "desc" },
+    });
+    res.json(subscribers);
 });
 router.get("/trek-blogs", async (req, res) => {
     const { trekId, status, featured } = req.query;
