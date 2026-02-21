@@ -82,6 +82,13 @@ const slugify = (value: string) =>
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-");
 
+const pad2 = (n: number) => String(n).padStart(2, "0");
+const toDateInputValue = (value: any) => {
+  const d = value instanceof Date ? value : new Date(value);
+  if (isNaN(d.getTime())) return "";
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+};
+
 async function fileToDataUrl(file: File) {
   const toDataUrl = (f: File) =>
     new Promise<string>((resolve, reject) => {
@@ -231,6 +238,16 @@ export default function AdminDashboard() {
     endDate: "",
     totalSeats: 20,
     pricePerSeat: 8000,
+  });
+
+  const [editDepartureForm, setEditDepartureForm] = useState<any>({
+    id: "",
+    trekTitle: "",
+    startDate: "",
+    endDate: "",
+    totalSeats: 0,
+    bookedSeats: 0,
+    pricePerSeat: 0,
   });
 
   const [couponForm, setCouponForm] = useState<any>({
@@ -442,6 +459,48 @@ export default function AdminDashboard() {
     },
     onError: (e: any) => showError(e.message),
   });
+
+  const updateDeparture = useMutation({
+    mutationFn: async () => {
+      if (!editDepartureForm.id) throw new Error("Select a departure to edit");
+      return adminFetch(`/api/admin/departures/${editDepartureForm.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          startDate: new Date(editDepartureForm.startDate),
+          endDate: new Date(editDepartureForm.endDate),
+          totalSeats: Number(editDepartureForm.totalSeats),
+          pricePerSeat: Number(editDepartureForm.pricePerSeat),
+        }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-departures"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-bookings"] });
+      setEditDepartureForm({
+        id: "",
+        trekTitle: "",
+        startDate: "",
+        endDate: "",
+        totalSeats: 0,
+        bookedSeats: 0,
+        pricePerSeat: 0,
+      });
+      showSuccess("Departure updated");
+    },
+    onError: (e: any) => showError(e.message),
+  });
+
+  const beginEditDeparture = (d: any) => {
+    setEditDepartureForm({
+      id: d.id,
+      trekTitle: d.trekTitle || "",
+      startDate: toDateInputValue(d.startDate),
+      endDate: toDateInputValue(d.endDate),
+      totalSeats: Number(d.totalSeats || 0),
+      bookedSeats: Number(d.bookedSeats || 0),
+      pricePerSeat: Number(d.pricePerSeat || 0),
+    });
+  };
 
   const deleteDeparture = async (id: string) => {
     if (!confirm("Delete this departure?")) return;
@@ -746,6 +805,34 @@ export default function AdminDashboard() {
       showSuccess("Booking cancelled");
     } catch (e: any) {
       showError(e.message);
+    }
+  };
+
+  const permanentlyDeleteBooking = async (bookingId: string) => {
+    if (!meQuery.data?.isMaster) return showError("Master admin only");
+    if (!confirm("Permanently delete this booking? This cannot be undone.")) return;
+    try {
+      await adminFetch(`/api/admin/bookings/${bookingId}/permanent`, { method: "DELETE" });
+      queryClient.invalidateQueries({ queryKey: ["admin-bookings"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-departures"] });
+      showSuccess("Booking permanently deleted");
+    } catch (e: any) {
+      const msg = String(e?.message || "Request failed");
+      if (msg.includes("?force=true")) {
+        if (!confirm("This booking has payments. Permanently delete anyway?")) return;
+        try {
+          await adminFetch(`/api/admin/bookings/${bookingId}/permanent?force=true`, {
+            method: "DELETE",
+          });
+          queryClient.invalidateQueries({ queryKey: ["admin-bookings"] });
+          queryClient.invalidateQueries({ queryKey: ["admin-departures"] });
+          showSuccess("Booking permanently deleted");
+          return;
+        } catch (e2: any) {
+          return showError(e2.message);
+        }
+      }
+      showError(msg);
     }
   };
 
@@ -1100,12 +1187,17 @@ export default function AdminDashboard() {
                       </td>
                       <td className="p-3">₹{d.pricePerSeat}</td>
                       <td className="p-3">
-                        <button
-                          onClick={() => deleteDeparture(d.id)}
-                          className="text-red-600 underline"
-                        >
-                          Delete
-                        </button>
+                        <div className="flex gap-3">
+                          <button onClick={() => beginEditDeparture(d)} className="underline">
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => deleteDeparture(d.id)}
+                            className="text-red-600 underline"
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -1119,6 +1211,88 @@ export default function AdminDashboard() {
                 </tbody>
               </table>
             </div>
+
+            {editDepartureForm.id ? (
+              <div className="bg-white border p-4 mt-6 rounded space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-semibold">Edit Departure</h3>
+                    <div className="text-xs text-gray-600">
+                      {editDepartureForm.trekTitle || "Departure"} • Booked{" "}
+                      {editDepartureForm.bookedSeats}/{editDepartureForm.totalSeats}
+                    </div>
+                  </div>
+                  <button
+                    className="text-sm underline"
+                    onClick={() =>
+                      setEditDepartureForm({
+                        id: "",
+                        trekTitle: "",
+                        startDate: "",
+                        endDate: "",
+                        totalSeats: 0,
+                        bookedSeats: 0,
+                        pricePerSeat: 0,
+                      })
+                    }
+                  >
+                    Cancel
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                  <input
+                    type="date"
+                    className="border p-2"
+                    value={editDepartureForm.startDate}
+                    onChange={(e) =>
+                      setEditDepartureForm({ ...editDepartureForm, startDate: e.target.value })
+                    }
+                  />
+                  <input
+                    type="date"
+                    className="border p-2"
+                    value={editDepartureForm.endDate}
+                    onChange={(e) =>
+                      setEditDepartureForm({ ...editDepartureForm, endDate: e.target.value })
+                    }
+                  />
+                  <input
+                    type="number"
+                    min={editDepartureForm.bookedSeats || 0}
+                    className="border p-2"
+                    value={editDepartureForm.totalSeats}
+                    onChange={(e) =>
+                      setEditDepartureForm({
+                        ...editDepartureForm,
+                        totalSeats: Number(e.target.value),
+                      })
+                    }
+                  />
+                  <input
+                    type="number"
+                    min={1}
+                    className="border p-2"
+                    value={editDepartureForm.pricePerSeat}
+                    onChange={(e) =>
+                      setEditDepartureForm({
+                        ...editDepartureForm,
+                        pricePerSeat: Number(e.target.value),
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => updateDeparture.mutate()}
+                    className="bg-maroon text-white px-4 py-2 rounded"
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </div>
+            ) : null}
 
             <div className="bg-white border p-4 mt-6">
               <h3>Create Departure</h3>
@@ -1443,6 +1617,14 @@ export default function AdminDashboard() {
                               >
                                 Delete
                               </button>
+                              {meQuery.data?.isMaster ? (
+                                <button
+                                  className="underline text-red-700"
+                                  onClick={() => permanentlyDeleteBooking(b.id)}
+                                >
+                                  Permanent
+                                </button>
+                              ) : null}
                             </div>
                           </td>
                         </tr>

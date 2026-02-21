@@ -39,7 +39,8 @@ router.post("/create-order", async (req, res) => {
         }
         const desiredStage = stage === "FULL" ? "FULL" : "ADVANCE";
         const alreadyPaid = booking.amountPaid || 0;
-        const dueBeforeDiscount = Math.max(0, finalAmount - alreadyPaid);
+        const creditUsed = booking.creditUsed || 0;
+        const dueBeforeDiscount = Math.max(0, finalAmount - alreadyPaid - creditUsed);
         const fullPaymentDiscountPercent = booking.fullPaymentDiscountPercent || 10;
         const discountDeadlineAt = new Date(booking.departure.startDate).getTime() -
             FULL_DISCOUNT_HOURS_BEFORE_START * 60 * 60 * 1000;
@@ -68,6 +69,7 @@ router.post("/create-order", async (req, res) => {
                 totalAmount,
                 discountAmount,
                 finalAmount,
+                amountDue: dueBeforeDiscount,
             },
         });
         await db_1.prisma.payment.create({
@@ -124,7 +126,9 @@ router.post("/verify", async (req, res) => {
                 throw new Error("Payment order not found");
             const paidAmount = booking.amountPaid + payment.amount;
             const isFullStagePayment = payment.stage === "FULL";
-            const remainingDue = isFullStagePayment ? 0 : Math.max(0, booking.finalAmount - paidAmount);
+            const remainingDue = isFullStagePayment
+                ? 0
+                : Math.max(0, booking.finalAmount - paidAmount - (booking.creditUsed || 0));
             const paymentStatus = remainingDue <= 0 || isFullStagePayment ? "FULLY_PAID" : "ADVANCE_PAID";
             await tx.payment.update({
                 where: { id: payment.id },

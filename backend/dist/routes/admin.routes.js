@@ -76,9 +76,10 @@ router.post("/login", async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password)
         return res.status(400).json({ error: "Missing credentials" });
-    if (!process.env.BOOKING_EMAIL_USER || !process.env.BOOKING_EMAIL_PASS) {
-        return res.status(500).json({ error: "Email OTP is not configured on the server" });
-    }
+    const bootstrapEmail = String(process.env.ADMIN_BOOTSTRAP_EMAIL || "")
+        .trim()
+        .toLowerCase();
+    const isBootstrapLogin = bootstrapEmail && String(email).trim().toLowerCase() === bootstrapEmail;
     let admin = await db_1.prisma.adminUser.findUnique({ where: { email } });
     if (!admin) {
         if (email === process.env.ADMIN_BOOTSTRAP_EMAIL &&
@@ -93,6 +94,13 @@ router.post("/login", async (req, res) => {
     const valid = await bcryptjs_1.default.compare(password, admin.passwordHash);
     if (!valid)
         return res.status(401).json({ error: "Invalid credentials" });
+    // Bootstrap (master) admin: allow direct login without OTP.
+    if (isBootstrapLogin) {
+        return res.json({ token: signToken(admin.id) });
+    }
+    if (!process.env.BOOKING_EMAIL_USER || !process.env.BOOKING_EMAIL_PASS) {
+        return res.status(500).json({ error: "Email OTP is not configured on the server" });
+    }
     const otp = crypto_1.default.randomInt(100000, 1000000).toString();
     const expiresMinutes = 10;
     const expiresAt = new Date(Date.now() + expiresMinutes * 60 * 1000);
@@ -135,14 +143,10 @@ router.post("/login/verify-otp", async (req, res) => {
     return res.json({ token: signToken(record.adminUserId) });
 });
 router.use(authMiddleware);
-router.get("/me", async (req, res) => {
-    const admin = await db_1.prisma.adminUser.findUnique({
-        where: { id: req.adminId },
-        select: { id: true, email: true, name: true, createdAt: true },
-    });
-    res.json(admin);
-});
 async function isMasterAdmin(adminId) {
+    const masterId = String(process.env.MASTER_ADMIN_ID || "").trim();
+    if (masterId && masterId === adminId)
+        return true;
     const masterEmail = String(process.env.MASTER_ADMIN_EMAIL || process.env.ADMIN_BOOTSTRAP_EMAIL || "")
         .trim()
         .toLowerCase();
@@ -154,6 +158,13 @@ async function isMasterAdmin(adminId) {
     });
     return admin?.email?.toLowerCase?.() === masterEmail;
 }
+router.get("/me", async (req, res) => {
+    const admin = await db_1.prisma.adminUser.findUnique({
+        where: { id: req.adminId },
+        select: { id: true, email: true, name: true, createdAt: true },
+    });
+    res.json({ ...admin, isMaster: await isMasterAdmin(req.adminId) });
+});
 router.get("/admin-users", async (_, res) => {
     const admins = await db_1.prisma.adminUser.findMany({
         select: { id: true, email: true, name: true, createdAt: true },
@@ -322,6 +333,56 @@ router.post("/treks/:id/departures", async (req, res) => {
         res.status(500).json({ error: "Failed to create departure" });
     }
 });
+router.patch("/departures/:id", async (req, res) => {
+    try {
+        const id = String(req.params.id || "").trim();
+        const existing = await db_1.prisma.departure.findUnique({ where: { id } });
+        if (!existing)
+            return res.status(404).json({ error: "Departure not found" });
+        const startDateRaw = req.body?.startDate !== undefined ? toDate(req.body.startDate) : undefined;
+        const endDateRaw = req.body?.endDate !== undefined ? toDate(req.body.endDate) : undefined;
+        const totalSeatsRaw = req.body?.totalSeats !== undefined ? toNumber(req.body.totalSeats) : undefined;
+        const pricePerSeatRaw = req.body?.pricePerSeat !== undefined ? toNumber(req.body.pricePerSeat) : undefined;
+        if (startDateRaw === null)
+            return res.status(400).json({ error: "Invalid startDate" });
+        if (endDateRaw === null)
+            return res.status(400).json({ error: "Invalid endDate" });
+        if (totalSeatsRaw !== undefined) {
+            if (totalSeatsRaw === null || !Number.isInteger(totalSeatsRaw) || totalSeatsRaw < 0) {
+                return res.status(400).json({ error: "Invalid totalSeats" });
+            }
+            if (totalSeatsRaw < (existing.bookedSeats || 0)) {
+                return res
+                    .status(400)
+                    .json({ error: "totalSeats cannot be less than bookedSeats" });
+            }
+        }
+        if (pricePerSeatRaw !== undefined) {
+            if (pricePerSeatRaw === null || !Number.isInteger(pricePerSeatRaw) || pricePerSeatRaw <= 0) {
+                return res.status(400).json({ error: "Invalid pricePerSeat" });
+            }
+        }
+        const nextStart = startDateRaw ?? existing.startDate;
+        const nextEnd = endDateRaw ?? existing.endDate;
+        if (nextStart.getTime() >= nextEnd.getTime()) {
+            return res.status(400).json({ error: "endDate must be after startDate" });
+        }
+        const updated = await db_1.prisma.departure.update({
+            where: { id },
+            data: {
+                startDate: startDateRaw ?? undefined,
+                endDate: endDateRaw ?? undefined,
+                totalSeats: totalSeatsRaw ?? undefined,
+                pricePerSeat: pricePerSeatRaw ?? undefined,
+            },
+        });
+        res.json(updated);
+    }
+    catch (err) {
+        console.error("Update departure error:", err);
+        res.status(500).json({ error: "Failed to update departure" });
+    }
+});
 router.delete("/departures/:id", async (req, res) => {
     const bookings = await db_1.prisma.booking.count({ where: { departureId: req.params.id } });
     if (bookings > 0) {
@@ -342,6 +403,79 @@ router.get("/bookings", async (_, res) => {
         orderBy: { createdAt: "desc" },
     });
     res.json(bookings);
+});
+router.delete("/bookings/:id/permanent", async (req, res) => {
+    if (!(await isMasterAdmin(req.adminId)))
+        return res.status(403).json({ error: "Forbidden" });
+    try {
+        const id = String(req.params.id || "").trim();
+        const force = String(req.query?.force || "").trim().toLowerCase() === "true";
+        const deleted = await db_1.prisma.$transaction(async (tx) => {
+            const booking = await tx.booking.findUnique({
+                where: { id },
+                include: {
+                    departure: true,
+                    customer: true,
+                    coupon: true,
+                    payments: true,
+                    redemptions: true,
+                },
+            });
+            if (!booking)
+                return null;
+            const hasPaidMoney = (booking.amountPaid || 0) > 0 ||
+                (booking.payments || []).some((p) => String(p.status || "").toUpperCase() === "PAID");
+            if (hasPaidMoney && !force)
+                throw new Error("PAID_BOOKING");
+            if (booking.status === "CONFIRMED" && booking.departure) {
+                const newBookedSeats = Math.max(0, (booking.departure.bookedSeats || 0) - booking.numberOfSeats);
+                await tx.departure.update({
+                    where: { id: booking.departureId },
+                    data: { bookedSeats: newBookedSeats },
+                });
+            }
+            if ((booking.creditUsed || 0) !== 0 || (booking.creditGranted || 0) !== 0) {
+                const customer = await tx.customer.findUnique({ where: { id: booking.customerId } });
+                if (customer) {
+                    const nextBalance = Math.max(0, (customer.creditBalance || 0) + (booking.creditUsed || 0) - (booking.creditGranted || 0));
+                    await tx.customer.update({
+                        where: { id: customer.id },
+                        data: { creditBalance: nextBalance },
+                    });
+                }
+            }
+            if (booking.couponId) {
+                const confirmedCount = await tx.couponRedemption.count({
+                    where: { bookingId: id, couponId: booking.couponId, status: "CONFIRMED" },
+                });
+                if (confirmedCount > 0) {
+                    const coupon = await tx.coupon.findUnique({ where: { id: booking.couponId } });
+                    if (coupon) {
+                        await tx.coupon.update({
+                            where: { id: coupon.id },
+                            data: { usedCount: Math.max(0, (coupon.usedCount || 0) - confirmedCount) },
+                        });
+                    }
+                }
+            }
+            await tx.couponRedemption.deleteMany({ where: { bookingId: id } });
+            await tx.payment.deleteMany({ where: { bookingId: id } });
+            await tx.booking.delete({ where: { id } });
+            return booking;
+        });
+        if (!deleted)
+            return res.status(404).json({ error: "Booking not found" });
+        res.json({ success: true, deletedId: id, trekkingId: deleted.trekkingId });
+    }
+    catch (err) {
+        if (err?.message === "PAID_BOOKING") {
+            return res.status(400).json({
+                error: "This booking has payments. Add ?force=true to permanently delete anyway.",
+            });
+        }
+        console.error("Permanent delete booking error:", err);
+        res.status(500).json({ error: "Failed to permanently delete booking" });
+    }
 });
 router.delete("/bookings/:id", async (req, res) => {
     try {
@@ -928,10 +1062,18 @@ router.post("/coupons/:id/share", async (req, res) => {
             return res.status(404).json({ error: "Coupon not found" });
         const discountText = coupon.type === "PERCENT" ? `${coupon.value}% OFF` : `₹${coupon.value} OFF`;
         const validTo = coupon.validTo ? new Date(coupon.validTo).toDateString() : undefined;
+        const terms = [];
+        if (coupon.minAmount)
+            terms.push(`Minimum booking amount: â‚¹${coupon.minAmount}`);
+        if (coupon.maxUsesPerEmail)
+            terms.push(`Max uses per email: ${coupon.maxUsesPerEmail}`);
+        if (coupon.maxUses)
+            terms.push(`Total max uses: ${coupon.maxUses}`);
         const html = (0, email_1.buildCouponShareEmail)({
             couponCode: coupon.code,
             discountText,
             validTo,
+            terms,
             note,
         });
         await Promise.all(emails.map((to) => (0, email_1.sendEmail)({
