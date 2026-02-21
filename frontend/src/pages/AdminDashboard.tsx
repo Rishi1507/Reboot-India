@@ -179,6 +179,7 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<Tab>("Treks");
   const [selectedTrek, setSelectedTrek] = useState<any>(null);
   const [trekSearch, setTrekSearch] = useState("");
+  const sanityStudioUrl = import.meta.env.VITE_SANITY_STUDIO_URL || "http://localhost:3333";
   const [blogFilters, setBlogFilters] = useState({
     trekId: "",
     status: "",
@@ -2093,8 +2094,41 @@ export default function AdminDashboard() {
         )}
 
         {activeTab === "Trek Blogs" && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div className="bg-white border p-4 rounded">
+          <div className="space-y-4">
+            <div className="bg-white border p-5 rounded space-y-3 max-w-3xl">
+              <h3 className="font-semibold text-lg">Trek Blogs (Sanity)</h3>
+              <p className="text-sm text-gray-700">
+                If you see <code>413 Entity Too Large</code> while saving a trek blog, itâ€™s because this legacy editor
+                uploads images as base64 data URLs (very large requests). The recommended flow is to create Trek Blogs
+                in Sanity Studio so images upload as separate assets.
+              </p>
+              <div className="flex gap-3 flex-wrap items-center">
+                <a
+                  href={sanityStudioUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="bg-maroon text-white px-4 py-2 rounded"
+                >
+                  Open Sanity Studio
+                </a>
+                <div className="text-xs text-gray-600">
+                  Local: <code>cd reboot-india</code> then <code>npm run dev</code> (default{" "}
+                  <code>http://localhost:3333</code>)
+                </div>
+              </div>
+              <div className="text-sm text-gray-700">
+                In Studio: create a <strong>Trek Blogs</strong> document and set <strong>Trek Slug</strong> exactly as
+                your trek page slug (example: <code>/treks/kedarkantha</code> â†’ <code>kedarkantha</code>).
+              </div>
+            </div>
+
+            <details className="bg-white border rounded">
+              <summary className="cursor-pointer select-none px-4 py-3 font-semibold">
+                Legacy Trek Blog Editor (Prisma)
+              </summary>
+              <div className="p-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  <div className="bg-white border p-4 rounded">
               <h3 className="font-semibold mb-3">Trek Blog List</h3>
               <div className="grid grid-cols-3 gap-2 mb-3">
                 <select
@@ -2281,16 +2315,8 @@ export default function AdminDashboard() {
                 accept=".svg,image/svg+xml"
                 className="border p-2 w-full mb-2"
                 onChange={async (e) => {
-                  const files = Array.from(e.target.files || []);
-                  if (!files.length) return;
-                  for (const f of files) {
-                    if (!ensureSvgFile(f)) return;
-                  }
-                  const urls = await Promise.all(files.map((f) => fileToDataUrl(f)));
-                  const existing = String(blogForm.galleryText || "").trim();
-                  const merged = [...(existing ? existing.split("\n").map((v) => v.trim()).filter(Boolean) : []), ...urls];
-                  setBlogForm({ ...blogForm, galleryText: merged.join("\n") });
-                  setBlogFormDirty(true);
+                  showError("Upload images via Sanity Studio (Trek Blogs). This legacy editor can trigger 413 errors.");
+                  e.target.value = "";
                 }}
               />
               <input
@@ -2304,11 +2330,8 @@ export default function AdminDashboard() {
                 accept=".svg,image/svg+xml"
                 className="border p-2 w-full mb-2"
                 onChange={async (e) => {
-                  const file = e.target.files?.[0];
-                  if (!file) return;
-                  if (!ensureSvgFile(file)) return;
-                  const dataUrl = await fileToDataUrl(file);
-                  setBlogForm({ ...blogForm, featuredImage: dataUrl });
+                  showError("Upload images via Sanity Studio (Trek Blogs). This legacy editor can trigger 413 errors.");
+                  e.target.value = "";
                 }}
               />
               {blogForm.featuredImage ? (
@@ -2409,7 +2432,10 @@ export default function AdminDashboard() {
                   Unpublish
                 </button>
               </div>
-            </div>
+                  </div>
+                </div>
+              </div>
+            </details>
           </div>
         )}
 

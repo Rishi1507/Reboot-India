@@ -7,6 +7,7 @@ import { AvailabilityCalendar } from "@/components/AvailabilityCalendar";
 import { Seo } from "@/components/Seo";
 import { useEffect, useMemo, useState } from "react";
 import { Clock, BarChart, MapPin } from "lucide-react";
+import { useTrekBlogs } from "@/hooks/use-trek-blogs";
 
 type ContentBlock = {
   type: "h1" | "h2" | "h3" | "p" | "ul";
@@ -67,7 +68,8 @@ export default function TrekDetail() {
     avgRating: 0,
     reviews: [],
   });
-  const [trekBlogs, setTrekBlogs] = useState<any[]>([]);
+  const { data: trekBlogs, isLoading: trekBlogsLoading } = useTrekBlogs(params?.slug || "");
+  const [legacyTrekBlogs, setLegacyTrekBlogs] = useState<any[]>([]);
 
   const trekData: any = trek || {};
   const departures = (trekData.departures || []).slice().sort(
@@ -108,14 +110,20 @@ export default function TrekDetail() {
       .catch(() => undefined);
   }, [params?.slug]);
 
+  // Backward-compatible fallback: if no Sanity trek blogs exist yet, fetch legacy Prisma trek blogs.
   useEffect(() => {
     if (!params?.slug) return;
+    if (trekBlogsLoading) return;
+    if ((trekBlogs || []).length > 0) return;
+
     const API = import.meta.env.VITE_API_URL || "http://localhost:5000";
     fetch(`${API}/api/treks/${params.slug}/blogs`)
       .then((r) => r.json())
-      .then((d) => setTrekBlogs(Array.isArray(d?.blogs) ? d.blogs : []))
-      .catch(() => setTrekBlogs([]));
-  }, [params?.slug]);
+      .then((d) => setLegacyTrekBlogs(Array.isArray(d?.blogs) ? d.blogs : []))
+      .catch(() => setLegacyTrekBlogs([]));
+  }, [params?.slug, trekBlogsLoading, (trekBlogs || []).length]);
+
+  const blogsToShow = (trekBlogs || []).length > 0 ? trekBlogs : legacyTrekBlogs;
 
   if (isLoading) return <div className="h-screen flex items-center justify-center">Loading...</div>;
   if (!trek) return <div className="h-screen flex items-center justify-center">Trek not found</div>;
@@ -174,16 +182,16 @@ export default function TrekDetail() {
             </section>
           )}
 
-          {trekBlogs.length > 0 && (
+          {(blogsToShow || []).length > 0 && (
             <section>
               <h2 className="text-2xl font-bold mb-3">Trek Blogs</h2>
               <p className="text-gray-600 mb-4">
                 Read detailed trek-specific blogs before booking this trek.
               </p>
               <div className="space-y-3">
-                {trekBlogs.map((blog: any) => (
+                {(blogsToShow || []).map((blog: any) => (
                   <a
-                    key={blog.id}
+                    key={blog.slug}
                     href={`/trek/${trekData.slug}/${blog.slug}`}
                     className="block bg-white border rounded-xl p-4 hover:border-maroon transition-colors"
                   >
